@@ -1,0 +1,43 @@
+
+[
+  {
+    "query": "How do I reset my password?",
+    "expected_id": "KB-001"
+  },
+  {
+    "query": "I forgot my password and cannot sign in",
+    "expected_id": "KB-001"
+  },
+  {
+    "query": "I can't log into my account",
+    "expected_id": "KB-001"
+  },
+  {
+    "query": "Can I get a refund?",
+    "expected_id": "KB-002"
+  },
+  {
+    "query": "I want my money back for a purchase",
+    "expected_id": "KB-002"
+  },
+  {
+    "query": "How can I track my shipment?",
+    "expected_id": "KB-003"
+  },
+  {
+    "query": "Where is my order?",
+    "expected_id": "KB-003"
+  },
+  {
+    "query": "What is the weather on Mars?",
+    "expected_id": null
+  },
+  {
+    "query": "How do I change my email address?",
+    "expected_id": null
+  },
+  {
+    "query": "My package has not arrived",
+    "expected_id": "KB-003"
+  }
+]
