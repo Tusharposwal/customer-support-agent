@@ -216,3 +216,72 @@ A test runs a fresh Python process to confirm importing the agent loads neither
 
 - `src/support_agent/agent.py`: `answer_question`, lazy client, command-line entry point.
 - `tests/test_agent.py`: offline workflow tests with a fake retriever and client.
+
+## The HTTP API (Phase 3)
+
+### FastAPI's role
+
+Until now the agent could only be used from Python or the command line.
+FastAPI turns it into a **web service**: any website, app or tool can send an
+HTTP request and get JSON back. FastAPI does the web plumbing (routing URLs,
+reading JSON, checking input, writing JSON). **Uvicorn** is the server program
+that listens on a port and passes requests to FastAPI. The agent logic itself
+is unchanged: the API calls `answer_question()` and nothing else.
+
+### Endpoints
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/health` | Returns `{"status": "ok"}`. Hosting platforms use it to check the server is alive, so it never calls Cohere (no cost, no dependency on Cohere being up). |
+| POST | `/chat` | Body `{"question": "..."}`. Returns `answer`, `sources`, `escalate`, `reason`. |
+
+FastAPI also generates interactive docs at `/docs` from the code.
+
+### Request/response flow
+
+```
+client ── POST /chat {"question": "..."} ──► Uvicorn ──► FastAPI
+  FastAPI checks the body against ChatRequest (Pydantic)
+     invalid → 422 with details of what is wrong (agent never called)
+  chat() → agent.answer_question(question)   (retrieval + Cohere, as before)
+     SupportAnswer → ChatResponse → 200 JSON
+     unexpected exception → 500 JSON with the safe hand-off message
+```
+
+### Validation with Pydantic
+
+`ChatRequest` declares `question` as a string that is trimmed and must be
+1–1000 characters. FastAPI rejects anything else with **HTTP 422**: a missing
+field, `""`, only spaces, a number or `null`, more than 1000 characters, or
+broken JSON. The length limit stops one request from sending a huge (and
+expensive) prompt. `ChatResponse` describes the output, so the response shape
+is checked too and appears in `/docs`.
+
+### Status codes and error safety
+
+- `200`: the agent answered **or** handed off. A hand-off is a normal result,
+  not an error, so the client checks `escalate`.
+- `422`: the client sent a bad request.
+- `500`: something unexpected broke. The body has the same shape as a normal
+  answer (hand-off message, `reason: "server_error"`), so a chat UI can still
+  display it. Exception messages and stack traces are never sent. Only the
+  exception type is logged on the server.
+
+### Design decisions
+
+- **`def`, not `async def`, for `/chat`.** The Cohere SDK calls are blocking.
+  FastAPI runs plain `def` endpoints in a thread pool, so one slow Cohere call
+  doesn't freeze the other requests.
+- **The API calls `agent.answer_question` through the module** (`agent.answer_question(...)`),
+  so tests can swap in a fake agent with `monkeypatch`. API tests use
+  FastAPI's `TestClient` and make no Cohere calls.
+- **No Cohere work at startup.** Importing the API doesn't create a client.
+  The first `/chat` request does, so `/health` works even before the key is set.
+- **`HOST`/`PORT` environment variables** in `python -m support_agent.api`.
+  Most hosting platforms tell the app which port to use through `PORT`.
+
+### Files
+
+- `src/support_agent/api.py`: FastAPI app, request/response models, entry point.
+- `tests/test_api.py`: endpoint tests with a mocked agent.
+- `pyproject.toml`: adds `fastapi` and `uvicorn` (and `httpx` for tests).
