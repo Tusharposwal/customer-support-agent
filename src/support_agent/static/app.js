@@ -87,9 +87,9 @@ function renderAnswer(data) {
   });
 }
 
-function showError(text) {
+function showError(text, label) {
   addMessage("error", (bubble) => {
-    bubble.appendChild(el("span", "label", "Something went wrong"));
+    bubble.appendChild(el("span", "label", label || "Something went wrong"));
     bubble.appendChild(el("p", null, text));
   });
 }
@@ -157,6 +157,13 @@ async function askQuestion(question) {
     if (response.status === 422) {
       return { error: "Please enter a question of up to 1000 characters." };
     }
+    if (response.status === 429) {
+      const message =
+        data && typeof data.detail === "string"
+          ? data.detail
+          : "We're receiving a lot of questions right now. Please wait a minute and try again.";
+      return { error: message, label: "Please try again later" };
+    }
     // The server sends a safe hand-off body on 500 as well, so show it if present.
     if (isValidAnswer(data)) {
       return { data };
@@ -196,7 +203,7 @@ async function handleSubmit(event) {
   if (result.data) {
     renderAnswer(result.data);
   } else {
-    showError(result.error);
+    showError(result.error, result.label);
   }
   setBusy(false);
   input.focus();

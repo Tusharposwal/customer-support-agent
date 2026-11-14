@@ -3,11 +3,20 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from support_agent import agent
+from support_agent import agent, api
 from support_agent.answer import HANDOFF_MESSAGE, SupportAnswer
 from support_agent.api import MAX_QUESTION_LENGTH, app
+from support_agent.rate_limit import RateLimiter
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def fresh_limiter(monkeypatch):
+    """Give every test its own default-sized limiter, so tests don't share quota."""
+    limiter = RateLimiter(per_minute=20, per_day=300)
+    monkeypatch.setattr(api, "chat_limiter", limiter)
+    return limiter
 
 GROUNDED = SupportAnswer(
     answer="Open the sign-in page and select Forgot password.",
@@ -214,3 +223,116 @@ def test_existing_routes_still_work(fake_agent):
     assert client.get("/docs").status_code == 200
     assert client.post("/chat", json={"question": "Hi"}).status_code == 200
     assert client.get("/static/missing.js").status_code == 404
+
+
+# --- Rate limiting -----------------------------------------------------------
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
+def use_limiter(monkeypatch, per_minute, per_day):
+    clock = FakeClock()
+    monkeypatch.setattr(
+        api, "chat_limiter", RateLimiter(per_minute=per_minute, per_day=per_day, clock=clock)
+    )
+    return clock
+
+
+def ask():
+    return client.post("/chat", json={"question": "How do I reset my password?"})
+
+
+def test_requests_under_the_limit_succeed(fake_agent, monkeypatch):
+    use_limiter(monkeypatch, per_minute=3, per_day=10)
+
+    assert [ask().status_code for _ in range(3)] == [200, 200, 200]
+    assert len(fake_agent.questions) == 3
+
+
+def test_minute_limit_returns_429(fake_agent, monkeypatch):
+    use_limiter(monkeypatch, per_minute=2, per_day=10)
+    ask()
+    ask()
+
+    response = ask()
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": api.LIMIT_MESSAGES["minute"]}
+    assert response.headers["Retry-After"] == "60"
+    assert len(fake_agent.questions) == 2  # The agent (and Cohere) was not called.
+
+
+def test_minute_limit_resets_after_window(fake_agent, monkeypatch):
+    clock = use_limiter(monkeypatch, per_minute=1, per_day=10)
+    ask()
+    assert ask().status_code == 429
+
+    clock.now += 60
+
+    assert ask().status_code == 200
+
+
+def test_day_limit_returns_429(fake_agent, monkeypatch):
+    clock = use_limiter(monkeypatch, per_minute=10, per_day=2)
+    ask()
+    ask()
+    clock.now += 3600  # An hour later the minute window is clear, the day is not.
+
+    response = ask()
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": api.LIMIT_MESSAGES["day"]}
+    assert response.headers["Retry-After"] == str(24 * 3600 - 3600)
+    assert len(fake_agent.questions) == 2
+
+
+def test_day_limit_resets_after_24_hours(fake_agent, monkeypatch):
+    clock = use_limiter(monkeypatch, per_minute=10, per_day=1)
+    ask()
+    assert ask().status_code == 429
+
+    clock.now += 24 * 3600
+
+    assert ask().status_code == 200
+
+
+def test_health_and_page_work_when_chat_is_limited(fake_agent, monkeypatch):
+    use_limiter(monkeypatch, per_minute=1, per_day=1)
+    ask()
+    assert ask().status_code == 429
+
+    assert client.get("/health").status_code == 200
+    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/").status_code == 200
+
+
+def test_invalid_requests_do_not_use_quota(fake_agent, monkeypatch):
+    use_limiter(monkeypatch, per_minute=1, per_day=1)
+
+    for _ in range(5):
+        assert client.post("/chat", json={"question": ""}).status_code == 422
+
+    assert ask().status_code == 200
+
+
+def test_rate_limit_message_is_safe(fake_agent, monkeypatch):
+    use_limiter(monkeypatch, per_minute=1, per_day=10)
+    ask()
+
+    body = ask().text
+
+    assert "Traceback" not in body
+    assert "COHERE" not in body
+
+
+def test_frontend_handles_429():
+    script = client.get("/static/app.js").text
+
+    assert "response.status === 429" in script
+    assert "data.detail" in script

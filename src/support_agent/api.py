@@ -18,11 +18,24 @@ from pydantic import BaseModel, StringConstraints
 
 from support_agent import agent
 from support_agent.answer import HANDOFF_MESSAGE
+from support_agent.rate_limit import limiter_from_env
 
 logger = logging.getLogger(__name__)
 
 MAX_QUESTION_LENGTH = 1000
 STATIC_DIR = Path(__file__).parent / "static"
+
+# One global limiter for POST /chat (protects the Cohere bill). /health and the
+# page itself are not limited.
+chat_limiter = limiter_from_env()
+
+LIMIT_MESSAGES = {
+    "minute": "We're receiving a lot of questions right now. Please wait a minute and try again.",
+    "day": (
+        "The assistant has reached its daily question limit. "
+        "Please try again tomorrow or contact our support team."
+    ),
+}
 
 app = FastAPI(
     title="Customer Support Agent API",
@@ -67,11 +80,27 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post(
+    "/chat",
+    response_model=ChatResponse,
+    responses={429: {"description": "Request limit reached; see the Retry-After header."}},
+)
 def chat(request: ChatRequest):
     """Answer a customer question using the existing support agent."""
     # A plain `def` endpoint: FastAPI runs it in a worker thread, so the
     # blocking Cohere calls do not freeze the server.
+
+    # Checked after validation, so invalid (422) requests don't use up the quota.
+    limited = chat_limiter.check()
+    if limited is not None:
+        limit_name, retry_after = limited
+        logger.warning("Chat rate limit reached (%s)", limit_name)
+        return JSONResponse(
+            status_code=429,
+            content={"detail": LIMIT_MESSAGES[limit_name]},
+            headers={"Retry-After": str(retry_after)},
+        )
+
     try:
         result = agent.answer_question(request.question)
         return ChatResponse(

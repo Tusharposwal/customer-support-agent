@@ -83,7 +83,48 @@ When the agent can't answer from the knowledge base, `escalate` is `true`,
 `sources` is empty, and `answer` is a fixed hand-off message.
 
 Responses: `200` answer or hand-off · `422` invalid request (missing, empty or
-over 1000-character `question`) · `500` unexpected server error (safe hand-off body).
+over 1000-character `question`) · `429` request limit reached (see
+[Deploy to Render](#deploy-to-render)) · `500` unexpected server error (safe hand-off body).
+
+## Deploy to Render
+
+Create a **Web Service** from this GitHub repository with:
+
+| Setting | Value |
+| --- | --- |
+| Runtime | Python 3 |
+| Branch | `phase-1-retrieval` |
+| Root directory | *(leave blank: repository root)* |
+| Build command | `pip install -e .` |
+| Start command | `uvicorn support_agent.api:app --host 0.0.0.0 --port $PORT` |
+| Health check path | `/health` |
+
+Environment variables (Render dashboard → your service → **Environment**):
+
+| Variable | Required | Value |
+| --- | --- | --- |
+| `COHERE_API_KEY` | Yes | Your Cohere API key. |
+| `PYTHON_VERSION` | Yes | `3.10.11` (also pinned in `.python-version`). |
+| `COHERE_CHAT_MODEL` | No | Chat model; default `command-a-03-2025`. |
+| `CHAT_RATE_LIMIT_PER_MINUTE` | No | Max `/chat` requests per minute, all visitors combined; default `20`. |
+| `CHAT_RATE_LIMIT_PER_DAY` | No | Max `/chat` requests per 24 hours, all visitors combined; default `300`. |
+
+> **Never commit API keys.** Set `COHERE_API_KEY` only in Render's Environment
+> settings. `.env` is git-ignored and is for local use only.
+
+Notes:
+
+- The build uses `pip install -e .` (editable) on purpose: the app reads
+  `data/kb.json` from the repository folder.
+- When a limit is reached, `/chat` returns **HTTP 429** with a `Retry-After`
+  header, and the page shows a "try again later" message. `/`, `/health` and
+  `/docs` are never limited.
+- The rate limiter is **in memory**: counts reset whenever the service restarts
+  or redeploys and aren't shared between instances. It's a cost guard for a
+  demo, not production-grade rate limiting.
+- On Render's free plan, the service sleeps after 15 minutes without traffic,
+  and the next visit takes about a minute to wake it. Open the site shortly
+  before a demo.
 
 ## Command line
 

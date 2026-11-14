@@ -343,3 +343,72 @@ as package data so the files ship with the package.
 - `src/support_agent/static/app.js`: sending questions and showing answers.
 - `src/support_agent/api.py`: `GET /` and the `/static` mount.
 - `tests/test_api.py`: page, assets, endpoint wiring and the "no innerHTML" check.
+
+## Rate limiting `/chat` (deployment)
+
+### Why
+
+Every `/chat` request costs money (one Cohere embed call plus one chat call).
+Once the site is public, anyone or any script could send thousands of
+questions. The limiter caps the total spend.
+
+### How it works
+
+`src/support_agent/rate_limit.py` keeps a list (a `deque`) of the times of
+recently accepted requests. For each new `/chat` request:
+
+1. Drop timestamps older than 24 hours.
+2. If 300 or more remain, reject with the **"day"** limit.
+3. If 20 or more are from the last 60 seconds, reject with the **"minute"** limit.
+4. Otherwise record the time and allow the request.
+
+These are **sliding windows**: "the last 60 seconds" and "the last 24 hours"
+measured from now, not calendar minutes or days. Rejected requests aren't
+recorded, so hammering the endpoint doesn't extend the wait. The list never
+holds more than the daily limit (300 timestamps), so memory stays tiny.
+
+In `api.py`, `chat()` calls `chat_limiter.check()` **after** request
+validation and **before** calling the agent:
+
+- allowed → normal flow;
+- limited → **HTTP 429** with a friendly `detail` message and a `Retry-After`
+  header (seconds until a slot frees up). The agent and Cohere are not called.
+
+Invalid requests (422) never reach the limiter, so they don't use up quota.
+`/`, `/health` and `/docs` aren't limited, so Render's health check keeps
+passing even when chat is at its limit. `app.js` shows the server's message
+with a "Please try again later" label.
+
+Limits come from `CHAT_RATE_LIMIT_PER_MINUTE` (default 20) and
+`CHAT_RATE_LIMIT_PER_DAY` (default 300). An invalid value such as `0` or
+`abc` stops the app at startup with a clear error, rather than silently
+running with no protection.
+
+### Design decisions
+
+- **Global, not per user.** Behind Render's proxy, a visitor's IP comes from
+  a header that scripts can fake, so per-IP limits are easy to dodge. A global
+  cap reliably bounds cost. The trade-off is that one heavy user can use up
+  the quota for everyone.
+- **Monotonic clock** (`time.monotonic`) so changes to the system clock can't
+  break the windows. Tests pass a fake clock, so they can "jump" 24 hours instantly.
+- **A lock** (`threading.Lock`), because FastAPI handles `def` endpoints in
+  several threads at once, and two requests must not both take the last slot.
+- **No new dependency.** The standard library is enough.
+
+### Limitations (why this is demo-grade)
+
+- Counts live in memory: a restart, redeploy or free-plan sleep resets them.
+- Each server process has its own counter. Running several workers or
+  instances multiplies the real limit.
+- A production system would use a shared store (for example Redis), per-user
+  limits tied to authentication, and a spending limit on the provider account.
+
+### Files
+
+- `src/support_agent/rate_limit.py`: `RateLimiter`, `limiter_from_env()`.
+- `src/support_agent/api.py`: 429 handling in `/chat`.
+- `src/support_agent/static/app.js`: 429 message for customers.
+- `tests/test_rate_limit.py`: limiter unit tests with a fake clock.
+- `tests/test_api.py`: endpoint-level limit tests.
+- `.python-version`: pins Python 3.10.11 for Render.
