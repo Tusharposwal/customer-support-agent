@@ -144,3 +144,75 @@ Citation IDs we did not supply are ignored, so a made-up ID can never become a s
 - `src/support_agent/answer.py`: `SupportAnswer`, `generate_answer`, prompt, hand-off message.
 - `tests/test_answer.py`: offline tests with a fake client.
 - `.env.example`: documents `COHERE_CHAT_MODEL`.
+
+## The support agent: end-to-end flow (Phase 2, Task 2)
+
+### The complete request flow
+
+```
+customer question
+  → answer_question(question)                      src/support_agent/agent.py
+      1. empty question?           → hand off ("empty_question")
+      2. get Cohere client         → hand off if COHERE_API_KEY missing ("configuration_error")
+      3. retrieve_hybrid(question) → up to 3 articles      (hybrid_kb.py, unchanged)
+         fails?                    → hand off ("retrieval_error")
+         nothing found?            → hand off ("no_articles"), no chat call
+      4. generate_answer(question, articles, client)       (answer.py)
+         → cited answer, or hand off (see table above)
+  → SupportAnswer(answer, sources, escalate, reason)
+```
+
+Try it from the command line (this makes real Cohere calls):
+
+```
+python -m support_agent.agent "How do I reset my password?"
+```
+
+### How retrieval connects to answer generation
+
+The agent passes the list returned by `retrieve_hybrid` straight to
+`generate_answer`. Retrieval decides **which** articles the model may see.
+Answer generation decides **whether** they actually answer the question. Extra
+fields added by retrieval (such as `score`) are ignored, because only `id`,
+`title`, `text` and `url` are sent to Cohere.
+
+Hybrid retrieval almost always returns something, because semantic search ranks
+every article. So in practice, the model and its citations are what catch
+irrelevant matches, by replying `INSUFFICIENT_EVIDENCE` or by citing nothing.
+
+### What `answer_question` does
+
+It is a small coordinator. It contains no retrieval or prompting logic of its own.
+It runs the steps above in order and turns every failure into a safe hand-off.
+`retriever`, `client` and `generator` are optional keyword arguments. Real
+components are used by default, and tests pass fakes, so the whole workflow
+can be tested offline.
+
+### Errors and escalation
+
+- Every failure returns the same `HANDOFF_MESSAGE` with `escalate=True`.
+  Exception messages (which might contain keys or internal details) are never
+  shown to the customer. Only the exception **type** is written to the log.
+- `reason` tells developers which step failed: `configuration_error`,
+  `retrieval_error`, `no_articles`, `agent_error`, plus the reasons from
+  `generate_answer`.
+- The API key is checked **before** retrieval. Semantic retrieval also needs
+  it, so a missing key is reported clearly as `configuration_error`.
+
+### Lazy initialization (why nothing happens at import)
+
+`semantic_kb.py` creates a Cohere client the moment it is imported. To keep
+`import support_agent.agent` free of side effects (fast, works without a key,
+safe in tests), the agent:
+
+- imports `hybrid_kb` **inside** the function that retrieves, and
+- creates its chat client in `_default_client()`, which loads `.env`, reads
+  `COHERE_API_KEY`, and is cached with `lru_cache` so the client is built once.
+
+A test runs a fresh Python process to confirm importing the agent loads neither
+`cohere` nor `semantic_kb`.
+
+### Files
+
+- `src/support_agent/agent.py`: `answer_question`, lazy client, command-line entry point.
+- `tests/test_agent.py`: offline workflow tests with a fake retriever and client.
