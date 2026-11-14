@@ -1,4 +1,27 @@
+import json
+
+import pytest
+
 from support_agent.kb import load_articles, retrieve
+
+
+def _valid_article(**overrides):
+    article = {
+        "id": "KB-T01",
+        "title": "Test article",
+        "text": "Test article text.",
+        "url": "https://support.example.com/test",
+    }
+    article.update(overrides)
+    return article
+
+
+def _write_kb(tmp_path, content):
+    """Write a temporary KB file; non-strings are serialized as JSON."""
+    path = tmp_path / "kb.json"
+    text = content if isinstance(content, str) else json.dumps(content)
+    path.write_text(text, encoding="utf-8")
+    return path
 
 
 def test_load_articles():
@@ -38,3 +61,69 @@ def test_login_problem():
 def test_email_change_is_not_supported():
     results = retrieve("How do I change my email address?")
     assert results == []
+
+
+def test_load_valid_temporary_kb(tmp_path):
+    articles = [_valid_article(), _valid_article(id="KB-T02")]
+    path = _write_kb(tmp_path, articles)
+
+    assert load_articles(path) == articles
+
+
+def test_invalid_json_is_rejected(tmp_path):
+    path = _write_kb(tmp_path, '[{"id": "KB-T01",')
+
+    with pytest.raises(ValueError, match="not valid JSON") as error:
+        load_articles(path)
+
+    assert str(path) in str(error.value)
+    assert isinstance(error.value.__cause__, json.JSONDecodeError)
+
+
+def test_top_level_must_be_list(tmp_path):
+    path = _write_kb(tmp_path, {"articles": [_valid_article()]})
+
+    with pytest.raises(ValueError, match="must contain a JSON list"):
+        load_articles(path)
+
+
+def test_article_must_be_object(tmp_path):
+    path = _write_kb(tmp_path, [_valid_article(), "not an article"])
+
+    with pytest.raises(ValueError, match=r"article #1 must be a JSON object"):
+        load_articles(path)
+
+
+@pytest.mark.parametrize("field", ["id", "title", "text", "url"])
+def test_missing_required_field_is_rejected(tmp_path, field):
+    article = _valid_article()
+    del article[field]
+    path = _write_kb(tmp_path, [article])
+
+    with pytest.raises(ValueError, match=f"missing required field\\(s\\): {field}"):
+        load_articles(path)
+
+
+@pytest.mark.parametrize("field", ["id", "title", "text", "url"])
+@pytest.mark.parametrize("value", ["", "   \n\t"])
+def test_empty_field_is_rejected(tmp_path, field, value):
+    path = _write_kb(tmp_path, [_valid_article(**{field: value})])
+
+    with pytest.raises(ValueError, match=f"field '{field}' must not be empty"):
+        load_articles(path)
+
+
+@pytest.mark.parametrize("field", ["id", "title", "text", "url"])
+@pytest.mark.parametrize("value", [None, 1, ["text"]])
+def test_non_string_field_is_rejected(tmp_path, field, value):
+    path = _write_kb(tmp_path, [_valid_article(**{field: value})])
+
+    with pytest.raises(ValueError, match=f"field '{field}' must be a string"):
+        load_articles(path)
+
+
+def test_duplicate_ids_are_rejected(tmp_path):
+    path = _write_kb(tmp_path, [_valid_article(), _valid_article(title="Other")])
+
+    with pytest.raises(ValueError, match="article #1 has duplicate id 'KB-T01'"):
+        load_articles(path)

@@ -5,6 +5,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 KB_PATH = PROJECT_ROOT / "data" / "kb.json"
 
+REQUIRED_FIELDS = ("id", "title", "text", "url")
+
 STOP_WORDS = {
     "what",
     "is",
@@ -26,10 +28,63 @@ STOP_WORDS = {
 }
 
 
-def load_articles() -> list[dict]:
-    """Load support articles from the JSON knowledge base."""
-    with KB_PATH.open("r", encoding="utf-8") as file:
-        return json.load(file)
+def load_articles(path: Path | None = None) -> list[dict]:
+    """Load and validate support articles from the JSON knowledge base."""
+    path = KB_PATH if path is None else Path(path)
+
+    with path.open("r", encoding="utf-8") as file:
+        try:
+            articles = json.load(file)
+        except json.JSONDecodeError as error:
+            raise ValueError(
+                f"Knowledge base {path} is not valid JSON: {error.msg} "
+                f"(line {error.lineno}, column {error.colno})"
+            ) from error
+
+    _validate_articles(articles, path)
+    return articles
+
+
+def _validate_articles(articles, path: Path) -> None:
+    """Raise ValueError if the knowledge base content is malformed."""
+    if not isinstance(articles, list):
+        raise ValueError(
+            f"Knowledge base {path} must contain a JSON list of articles, "
+            f"got {type(articles).__name__}"
+        )
+
+    seen_ids = set()
+
+    for index, article in enumerate(articles):
+        location = f"Knowledge base {path}, article #{index}"
+
+        if not isinstance(article, dict):
+            raise ValueError(
+                f"{location} must be a JSON object, got {type(article).__name__}"
+            )
+
+        missing = [field for field in REQUIRED_FIELDS if field not in article]
+        if missing:
+            raise ValueError(
+                f"{location} is missing required field(s): {', '.join(missing)}"
+            )
+
+        for field in REQUIRED_FIELDS:
+            value = article[field]
+
+            if not isinstance(value, str):
+                raise ValueError(
+                    f"{location} field '{field}' must be a string, "
+                    f"got {type(value).__name__}"
+                )
+
+            if not value.strip():
+                raise ValueError(f"{location} field '{field}' must not be empty")
+
+        article_id = article["id"]
+        if article_id in seen_ids:
+            raise ValueError(f"{location} has duplicate id '{article_id}'")
+        seen_ids.add(article_id)
 
 
 def tokenize(text: str) -> set[str]:
