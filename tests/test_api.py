@@ -157,3 +157,60 @@ def test_openapi_schema_lists_endpoints():
 
     assert "/health" in paths and "get" in paths["/health"]
     assert "/chat" in paths and "post" in paths["/chat"]
+
+
+# --- Web interface ---------------------------------------------------------
+
+
+def test_home_page_loads_without_calling_agent(fake_agent):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "<title>AI Customer Support Assistant</title>" in response.text
+    assert 'id="chat-form"' in response.text
+    assert 'id="question"' in response.text
+    assert 'src="/static/app.js"' in response.text
+    assert 'href="/static/styles.css"' in response.text
+    assert fake_agent.questions == []
+
+
+def test_page_assets_are_served():
+    script = client.get("/static/app.js")
+    styles = client.get("/static/styles.css")
+
+    assert script.status_code == 200
+    assert "javascript" in script.headers["content-type"]
+    assert styles.status_code == 200
+    assert styles.headers["content-type"].startswith("text/css")
+
+
+def test_frontend_posts_json_to_chat_endpoint():
+    script = client.get("/static/app.js").text
+
+    assert 'const CHAT_URL = "/chat";' in script
+    assert "fetch(CHAT_URL" in script
+    assert 'method: "POST"' in script
+    assert '"Content-Type": "application/json"' in script
+    assert "JSON.stringify({ question })" in script
+
+
+def test_frontend_never_uses_innerhtml():
+    script = client.get("/static/app.js").text
+
+    assert "innerHTML" not in script
+    assert "insertAdjacentHTML" not in script
+    assert "textContent" in script
+
+
+def test_home_page_is_not_in_api_schema():
+    paths = client.get("/openapi.json").json()["paths"]
+
+    assert "/" not in paths
+
+
+def test_existing_routes_still_work(fake_agent):
+    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/docs").status_code == 200
+    assert client.post("/chat", json={"question": "Hi"}).status_code == 200
+    assert client.get("/static/missing.js").status_code == 404

@@ -20,19 +20,43 @@ Copy-Item .env.example .env   # then put your Cohere API key in .env
 | `COHERE_API_KEY` | Yes | Cohere API key (never commit `.env`). |
 | `COHERE_CHAT_MODEL` | No | Chat model; defaults to `command-a-03-2025`. |
 
-## Run the API locally
+## Run the application locally
+
+From the project folder, with the virtual environment activated:
 
 ```powershell
 uvicorn support_agent.api:app --reload
 # or: python -m support_agent.api   (uses HOST / PORT env vars, default 127.0.0.1:8000)
 ```
 
-Then open http://127.0.0.1:8000/docs for interactive API docs.
+| What | URL |
+| --- | --- |
+| Chat interface (customers) | http://127.0.0.1:8000/ |
+| Interactive API docs | http://127.0.0.1:8000/docs |
+| Health check | http://127.0.0.1:8000/health |
+
+Stop the server with `Ctrl+C`.
+
+### The chat interface
+
+A single responsive page (plain HTML, CSS and JavaScript in
+`src/support_agent/static/`, no framework) served by the same FastAPI app:
+
+- Type a question and press **Enter** (Shift+Enter adds a new line) or **Send**.
+- While the agent works, a loading indicator appears and sending is disabled.
+- Answers show their **source articles** as links.
+- When the agent can't answer from the docs, the reply is shown in an amber
+  **"Handed off to a human agent"** card.
+- Network or server problems show a red error message.
+- Works on phones and desktops, in light and dark mode.
+
+Each question sent from the page calls Cohere (the same cost as an API call).
 
 ### Endpoints
 
 | Method | Path | Purpose |
 | --- | --- | --- |
+| GET | `/` | Chat interface (HTML page). |
 | GET | `/health` | Returns `{"status": "ok"}`. Does not call Cohere. |
 | POST | `/chat` | Answers a customer question. |
 

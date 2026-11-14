@@ -285,3 +285,61 @@ is checked too and appears in `/docs`.
 - `src/support_agent/api.py`: FastAPI app, request/response models, entry point.
 - `tests/test_api.py`: endpoint tests with a mocked agent.
 - `pyproject.toml`: adds `fastapi` and `uvicorn` (and `httpx` for tests).
+
+## The chat web interface
+
+### How the browser talks to FastAPI
+
+```
+Browser opens http://127.0.0.1:8000/
+  GET /                  → FastAPI returns static/index.html
+  GET /static/styles.css → page styling
+  GET /static/app.js     → page logic
+Customer presses Enter
+  app.js: fetch("/chat", POST, {"question": "..."})   ← same server, same /chat as the API
+  FastAPI → answer_question() → JSON {answer, sources, escalate, reason}
+  app.js builds the message bubble from that JSON
+```
+
+The page is just another client of `POST /chat`, exactly like `curl` or
+`/docs`. There is no extra backend logic for the UI. Because the page and the
+API come from the **same server (same origin)**, the browser allows the
+`fetch` without any CORS configuration.
+
+### What `app.js` does
+
+1. Ignores empty messages and shows a hint instead.
+2. Shows the customer's message, a loading indicator, and disables the
+   input and Send button so a question can't be sent twice.
+3. Sends `POST /chat` with JSON, and gives up after 60 seconds.
+4. Shows the result:
+   - `escalate: false` → answer plus "Sources" links;
+   - `escalate: true` → amber "Handed off to a human agent" card;
+   - `422` → "Please enter a question of up to 1000 characters";
+   - network error, timeout or unreadable response → red error message.
+     A `500` still carries the safe hand-off body, so it's shown as a hand-off.
+
+### Safe rendering (why no `innerHTML`)
+
+Questions come from customers and answers come from a model, so both are
+**untrusted text**. If they were inserted with `innerHTML`, text like
+`<img src=x onerror=...>` would become real HTML and could run code
+(an XSS attack). `app.js` builds every element with `document.createElement`
+and sets text with `textContent`, so such text is displayed literally. Source
+links are only created for `http://` or `https://` URLs (blocking
+`javascript:` links), and open in a new tab with `rel="noopener noreferrer"`.
+
+### Serving the files
+
+`api.py` mounts the `static/` folder at `/static` (`StaticFiles`) and adds
+`GET /`, which returns `index.html`. `/` is hidden from the API schema, so
+`/docs` only lists the real API endpoints. `pyproject.toml` lists `static/*`
+as package data so the files ship with the package.
+
+### Files
+
+- `src/support_agent/static/index.html`: page structure.
+- `src/support_agent/static/styles.css`: layout, colours (light/dark), mobile rules.
+- `src/support_agent/static/app.js`: sending questions and showing answers.
+- `src/support_agent/api.py`: `GET /` and the `/static` mount.
+- `tests/test_api.py`: page, assets, endpoint wiring and the "no innerHTML" check.

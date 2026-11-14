@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Customer Support Assistant</title>
+  <meta name="description" content="Ask a question and get an answer from our support documentation.">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        <div>
+          <h1>AI Customer Support Assistant</h1>
+          <p class="subtitle">Answers your questions using our support documentation, with links to the articles it used.
+            If it can't find the answer, it passes your question to our support team.</p>
+        </div>
+      </div>
+    </header>
+
+    <main id="messages" class="messages" aria-live="polite" aria-label="Conversation">
+      <div class="message assistant">
+        <div class="bubble">
+          <p>Hi! Ask me about passwords, refunds, or tracking an order.</p>
+        </div>
+      </div>
+    </main>
+
+    <form id="chat-form" class="composer" novalidate>
+      <label for="question" class="visually-hidden">Your question</label>
+      <textarea id="question" name="question" rows="1" maxlength="1000"
+        placeholder="Type your question…" autocomplete="off" required></textarea>
+      <button id="send" type="submit" disabled>Send</button>
+    </form>
+    <p id="hint" class="hint" aria-live="polite">Press Enter to send · Shift+Enter for a new line</p>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

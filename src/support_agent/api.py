@@ -8,10 +8,12 @@ or:
 
 import logging
 import os
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, StringConstraints
 
 from support_agent import agent
@@ -20,12 +22,16 @@ from support_agent.answer import HANDOFF_MESSAGE
 logger = logging.getLogger(__name__)
 
 MAX_QUESTION_LENGTH = 1000
+STATIC_DIR = Path(__file__).parent / "static"
 
 app = FastAPI(
     title="Customer Support Agent API",
     description="Answers customer questions from the knowledge base, or hands off to a human.",
     version="0.1.0",
 )
+
+# The chat page's CSS and JavaScript, served at /static/...
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 class ChatRequest(BaseModel):
@@ -47,6 +53,12 @@ class ChatResponse(BaseModel):
     sources: list[Source]
     escalate: bool
     reason: str
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    """The customer-facing chat page. It calls POST /chat from the browser."""
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/health")
