@@ -121,13 +121,16 @@ never see a guessed answer or an internal error. The `reason` records why:
 | --- | --- | --- |
 | Empty question | `empty_question` | No |
 | No articles retrieved | `no_articles` | No |
-| API/network error | `llm_error` | Yes |
-| Response has no usable text | `malformed_response` | Yes |
+| API/network error, or generation stopped with `ERROR`/`TIMEOUT` | `llm_error` | Yes |
+| Unknown finish reason, or no usable text | `malformed_response` | Yes |
 | Answer cut off by the token limit | `incomplete_response` | Yes |
-| Model replied `INSUFFICIENT_EVIDENCE` | `insufficient_evidence` | Yes |
-| No citation points to a supplied article | `no_citations` | Yes |
+| Model replied `INSUFFICIENT_EVIDENCE` (any case, spacing or markdown escaping) | `insufficient_evidence` | Yes |
+| A citation points to an article we did not supply | `invalid_citations` | Yes |
+| No citations | `no_citations` | Yes |
 
-Citation IDs we did not supply are ignored, so a made-up ID can never become a source.
+A citation of an ID we did not supply rejects the **whole** answer (updated
+in V2 Phase 3, Milestone 1; it used to be dropped silently). See "Agent
+decision reliability" below.
 
 ### Design decisions
 
@@ -925,4 +928,410 @@ What this shows:
   the existing rate limiter also limits rerank usage.
 - Adds one request per question: 0.44–1.30 s measured across both experiment
   runs (median about 0.47–0.59 s), capped by the timeout. The chat and embedding calls still use the SDK's 300 s default
-  timeout; that is outside this change.
+  timeout; that is outside this change. (Fixed later: see "External API errors
+  and retries (V2 Phase 3, Milestone 2)".)
+
+## Agent decision reliability (V2 Phase 3, Milestone 1)
+
+### The three possible decisions
+
+For every question the agent must do exactly one of:
+
+1. **Answer**, only from knowledge-base articles it was given, with citations
+   to those articles and nothing else.
+2. **Hand off: not supported.** The evidence is missing or insufficient.
+3. **Hand off: failure.** A system or configuration problem prevented safe
+   processing.
+
+The customer sees the same fixed `HANDOFF_MESSAGE` for both kinds of hand-off.
+`reason` tells them apart for developers and logs.
+
+### Problems found
+
+Every outcome was traced with offline fakes. Seven of them showed the
+customer something that should have been handed off:
+
+| Situation | Before | Now |
+| --- | --- | --- |
+| Chat finished with `ERROR` or `TIMEOUT` but returned cited partial text | **answered** | `llm_error` |
+| Chat response had no finish reason (or `TOOL_CALL`, or an unknown value) | **answered** | `malformed_response` |
+| Model cited a supplied article **and** an article we never supplied | **answered** (unknown ID silently dropped) | `invalid_citations` |
+| Model wrote `INSUFFICIENT\_EVIDENCE` (markdown), `Insufficient evidence.` etc. and cited something | **answered, showing that text** | `insufficient_evidence` |
+| Same marker variants without citations | `no_citations` (wrong reason) | `insufficient_evidence` |
+| A custom or buggy generator returned a source that was never supplied | **answered** | `invalid_citations` |
+| A generator hand-off carried its own text (e.g. an error message) | **shown to the customer** | standard hand-off message |
+| Retrieval returned an article missing a field | `llm_error` (wrong layer) | `retrieval_error` |
+| Retrieval returned two articles with the same ID | **answered** | `retrieval_error` |
+
+### What changed
+
+**`answer.py` (`generate_answer`)**
+
+- **Finish reason is checked first.**
+  - `COMPLETE` and `STOP_SEQUENCE` are the only normal endings.
+  - `MAX_TOKENS` gives `incomplete_response`.
+  - `ERROR` and `TIMEOUT` give `llm_error` (Cohere failed).
+  - Anything else, including a missing value, gives `malformed_response`.
+
+  Text from an unfinished generation is never shown.
+- **The insufficient-evidence marker is matched loosely**: any case, spaces,
+  hyphens, underscores or markdown escaping. Wrongly handing off is safer than
+  wrongly answering, so loose matching errs in the safe direction.
+- **Any citation of an unsupplied document rejects the whole answer**
+  (`invalid_citations`). Dropping only that source would still show the text
+  it was attached to, and that text isn't grounded in our articles.
+  `no_citations` now only means "the model cited nothing".
+- **Cohere documents are built before the API call.** A malformed article is
+  now a data error, not something that looks like an LLM failure.
+
+**`agent.py` (`answer_question`)**
+
+- **Retrieved articles are checked before use.** There must be a list. Every
+  article must have non-empty `id`, `title`, `text` and `url` strings, and
+  IDs must be unique. Anything else is `retrieval_error`, with no chat call.
+  Extra fields such as scores are fine.
+- **Reranker output must come from the retrieved articles.** The output has
+  to be valid articles whose IDs were all retrieved. Otherwise it's treated
+  as a rerank failure: fail open to the hybrid articles, as before.
+- **A final gate on every generator result.** It doesn't depend on
+  `answer.py`, so it also protects against custom generators and future bugs.
+  - **A hand-off** always becomes the standard message with no sources. The
+    reason is kept; a missing reason becomes `agent_error`.
+  - **An answer** needs non-empty text (otherwise `malformed_response`) and
+    at least one source (otherwise `no_citations`).
+  - **Every source** must match a supplied article by ID, title and URL
+    (otherwise `invalid_citations`).
+  - **Anything that isn't a `SupportAnswer`** is `agent_error`.
+
+**Unchanged:**
+- the `SupportAnswer` contract;
+- `HANDOFF_MESSAGE`;
+- `api.py` and the frontend (which only reads `escalate`);
+- reranking behaviour and its off-by-default setting;
+- the rerank evaluation results.
+
+The evaluation's recording generator now returns a well-formed placeholder
+answer, so the new final gate accepts it.
+
+### The full decision flow
+
+```
+answer_question(question)
+  empty question                               → empty_question          (input)
+  client / settings unavailable or invalid     → configuration_error     (failure)
+  retrieval raised                             → retrieval_error         (failure)
+  nothing retrieved                            → no_articles             (not supported)
+  retrieved articles malformed                 → retrieval_error         (failure)
+  rerank enabled:
+    request fails / bad output                 → keep hybrid articles (fail open, logged)
+    nothing ≥ minimum score                    → below_rerank_threshold  (not supported)
+  generate_answer:
+    chat API error                             → llm_error               (failure)
+    finish ERROR / TIMEOUT                     → llm_error               (failure)
+    finish MAX_TOKENS                          → incomplete_response     (failure)
+    other finish reason, or no text            → malformed_response      (failure)
+    INSUFFICIENT_EVIDENCE (any variant)        → insufficient_evidence   (not supported)
+    cites an unsupplied document               → invalid_citations       (failure)
+    cites nothing                              → no_citations            (not supported)
+    generator raised                           → agent_error             (failure)
+  final gate on the result                     → invalid_citations / no_citations /
+                                                 malformed_response / agent_error
+  otherwise                                    → answered
+  (api.py: any exception escaping the agent    → HTTP 500, server_error)
+```
+
+`invalid_citations` counts as a failure because the response doesn't match
+what we sent. `no_citations` counts as "not supported" because the model
+declined to ground an answer.
+
+### Tests
+
+- `tests/test_agent_decisions.py` (new, no `cohere` import):
+  - a table test that runs all 13 outcomes above through `answer_question`
+    with the real `generate_answer`, and checks that no secret appears in the
+    answer or the logs;
+  - malformed retrieval results;
+  - invalid reranker output;
+  - every rule of the final gate.
+- `tests/test_answer.py`: finish reasons, marker variants, citations without
+  an ID, and malformed articles raising before any API call. Two tests now
+  expect `invalid_citations` instead of the old "drop the unknown ID"
+  behaviour.
+- Test fakes that "answered" without sources were given a real source (they
+  would otherwise be correctly rejected by the final gate).
+
+### Remaining limitations
+
+- **Citation coverage isn't measured.** An answer with one valid citation
+  could still contain uncited sentences. Cohere citations cover phrases, not
+  whole answers, and choosing a coverage threshold needs real data.
+- **`llm_error` covers every chat failure**: invalid key, rate limit, outage
+  and timeout. The log has the exception type, but the reason doesn't
+  distinguish them.
+- **Chat and embedding calls still use the SDK's 300-second timeout and 2
+  automatic retries.** That's error handling, outside this milestone.
+  (Fixed in Milestone 2, next section.)
+- **Hand-off decisions aren't logged with their reason** in one consistent
+  place yet (observability).
+- **Loose marker matching** means a genuine answer containing the words
+  "insufficient evidence" would be handed off. This is the deliberately safe
+  direction.
+
+## External API errors and retries (V2 Phase 3, Milestone 2)
+
+Each question makes up to three kinds of Cohere request:
+
+| Request | Where | When |
+| --- | --- | --- |
+| Embed the question (`search_query`) | `semantic_kb.retrieve_semantic` | every question |
+| Embed all articles (`search_document`) | `semantic_kb._embedded_articles` | first question per process, and again after an article's text changes (cached after success) |
+| Rerank | `rerank.rerank_articles` | only if reranking is enabled |
+| Chat | `answer.generate_answer` | every question that reaches answer generation |
+
+### What the SDK did on its own (checked in cohere 7.3.0)
+
+- **Timeout: 300 seconds** per request when none is given.
+- **Up to 2 automatic retries**, invisible to us, for 429, 408, 409, every 5xx
+  (even 501 "not implemented") and dropped connections.
+- **Before retrying a 429 it waits for the `Retry-After` header, up to
+  60 seconds each time.**
+- A read timeout is not retried.
+- The SDK's error text (`str(ApiError)`) includes the response headers and
+  body, so it must never be logged.
+
+So in the worst case one chat request could keep a customer waiting for
+minutes (3 × 300 s plus waits). The only request with explicit settings was
+rerank (`timeout=5`, `max_retries=0`), added in Phase 2.
+
+### The policy (`src/support_agent/cohere_calls.py`)
+
+Every chat and embed request now passes
+`request_options={"timeout": <seconds left>, "max_retries": 0}`, both
+verified in the installed SDK's `RequestOptions`. The SDK never retries by
+itself; one small function, `call_with_retries`, decides:
+
+| Failure | Category | Retried? | Why |
+| --- | --- | --- | --- |
+| 429 | `rate_limit` | once, if `Retry-After` ≤ 2 s (or absent: wait 1 s) | usually short-lived; a long wait is worse than a hand-off |
+| 500, 502, 503, 504 | `server_error` | once, after 1 s | usually temporary |
+| connection could not be opened: `httpx.ConnectError`, `httpx.ConnectTimeout`, `ConnectionRefusedError` | `connect_error` | once, after 1 s | the request was never sent |
+| open connection failed: `httpx.ReadError`, `WriteError`, `CloseError`, `RemoteProtocolError`; `ConnectionResetError`, `ConnectionAbortedError`, `BrokenPipeError` | `connection_lost` | no | Cohere may already have processed the request |
+| read/write/pool timeout, 408 | `timeout` | no | the time budget is already used up |
+| 401, 403, 498 | `auth_error` | no, logged as ERROR | a bad key won't fix itself |
+| other 4xx | `invalid_request` | no, logged as ERROR | a bug in our request |
+| unreadable 2xx response | `malformed_response` | no | |
+| anything else (including 501) | `unknown` | no | |
+
+**Time budget.** `COHERE_CHAT_TIMEOUT_SECONDS` (default 25) and
+`COHERE_EMBED_TIMEOUT_SECONDS` (default 10) are the most time the whole call
+may take, *including* a retry and the wait before it. The retry only gets the
+time that is left, and it only happens if at least half the budget remains
+after the wait. Example (chat, 25 s): a 503 after 3 s → wait 1 s → retry with
+21 s. A 503 after 13 s → no retry (only 11 s would be left).
+
+Worst case for one question is therefore about 10 s (query embedding) +
+10 s (article embeddings, first question only) + 5 s (rerank, if enabled) +
+25 s (chat) = 50 s, instead of many minutes. Values must be above 0 and at
+most 120; an invalid value makes the agent hand off with
+`configuration_error` before any request.
+
+**Duplicate requests.** A retry after a rate limit or a connection that
+could not be opened cannot duplicate work: Cohere never processed the first
+request. After a 5xx it might have, so the worst case is one extra billed
+request; a chat or embed request has no other side effect. Timeouts are not
+retried partly for this reason: the request may still be running on Cohere's
+side.
+
+**Which connection failures are safe to retry** (checked in httpx 0.28.1 /
+httpcore 1.0.9, and by experiment). An experiment pointed the real
+`cohere.ClientV2` at fake servers on 127.0.0.1 (no Cohere traffic), and the
+server recorded whether it had received the whole request:
+
+| What the server did | Exception | Server had the full request? |
+| --- | --- | --- |
+| nothing listening (refused) | `ConnectError` (about 2 s on Windows), or `ConnectTimeout` if the timeout is shorter | never connected |
+| reset or closed before reading | `ReadError` | no |
+| read the request, then reset | `ReadError` | **yes** |
+| read the request, then closed | `RemoteProtocolError` | **yes** |
+| read the request, sent half a response | `RemoteProtocolError` | **yes** |
+| read the request, never answered | `ReadTimeout` | **yes** |
+
+- `ConnectError` and `ConnectTimeout` come only from httpcore's socket
+  backend, while opening the TCP connection or doing the TLS handshake, before
+  any HTTP bytes are written. They reliably mean "not sent", so they are
+  retried.
+- `ReadError` appears both when the server never saw the request and when it
+  had the whole request. The exception can't tell us which, so these
+  failures are not retried.
+- httpcore even swallows a `WriteError` during the request write and tries
+  to read a response, so a failed send also surfaces as a read error.
+- Cohere has no idempotency key to make a repeat safe.
+- The SDK would normally retry `RemoteProtocolError` itself; `max_retries=0`
+  turns that off, and a test with the real client over an in-memory transport
+  checks it.
+
+**No leaks.** Failures are raised as `CohereCallError`, whose message is only
+"Cohere chat request failed: rate_limit (attempts: 2)". It is raised
+`from None`, so the provider's exception (with headers and body) isn't
+attached to tracebacks. Each failed attempt is logged with the operation,
+attempt number, category, exception type and status code, never the
+message.
+
+### What the customer sees
+
+Unchanged. Any chat failure still hands off with `reason="llm_error"`, and
+any embedding failure with `reason="retrieval_error"`, using the standard
+hand-off message. The `SupportAnswer` contract, `api.py` and the web page are
+unchanged. The categories are in the logs, for the operator, rather than in
+the customer response.
+
+### Other fixes
+
+- **Short embedding responses were accepted silently.** If Cohere returned
+  fewer vectors than articles, `zip()` dropped the extra articles and the
+  result was cached for the life of the process. `_embed` now checks there is
+  exactly one non-empty vector per text and raises
+  `CohereCallError("embed", "malformed_response")` otherwise. A failure is
+  never cached, so the next question tries again.
+- Reranking is unchanged (`timeout` from `COHERE_RERANK_TIMEOUT_SECONDS`,
+  no retry, fail open).
+
+### Tests
+
+- `tests/test_cohere_calls.py` (106 tests, offline). The errors are the
+  installed SDK's real exception classes (`TooManyRequestsError`,
+  `UnauthorizedError`, `ServiceUnavailableError`, `ParsingError`, ...) and
+  httpx's (`ReadTimeout`, `ConnectError`, ...), raised by fake clients. They
+  cover:
+  - classification of 32 error types, including "never sent" connection
+    failures (retried) versus "maybe processed" ones (not retried);
+  - the real `cohere.ClientV2` over an in-memory `httpx.MockTransport`: the
+    request reaches the transport twice for `ConnectError`/`ConnectTimeout`
+    and once for `ReadError`, `WriteError`, `CloseError` and
+    `RemoteProtocolError`;
+  - which errors are retried, and never more than once;
+  - `Retry-After` handling;
+  - the time budget (with a fake clock), including a worst-case test where
+    every attempt uses its full timeout: the total is exactly the budget;
+  - no secret in the error, the logs or the customer answer;
+  - timeout settings and their validation (`configuration_error`);
+  - `generate_answer` and `answer_question` with failing chat clients;
+  - `semantic_kb` imported with a fake `cohere` module and a no-op `dotenv`,
+    so `.env` is never read and no real client exists: request options,
+    recovery, failures and the short-response fix.
+- `tests/conftest.py` replaces the retry wait with a no-op in every test, so
+  no test really sleeps.
+
+### Remaining limitations
+
+- **The timeout is per network phase, not wall-clock.** httpx applies it to
+  connecting and to each wait for data; a non-streaming response sends
+  nothing until it's done, so in practice it bounds the request, but a server
+  that trickles bytes slowly could take longer.
+- **Retries are per process and per request.** There is no circuit breaker:
+  during a long outage every question still tries (and retries) once.
+- **Hand-off reasons don't distinguish the category.** A rate limit and a bad
+  key both reach the customer as `llm_error` (or `retrieval_error`). This is
+  on purpose (contract unchanged); the logs have the category.
+- **`Retry-After` is only read as a number of seconds**; a date is treated as
+  "not given" (wait 1 s).
+- Evaluation scripts that call `semantic_kb.client.embed` directly are
+  unchanged: `calibrate_semantic.py` (question embeddings) still uses the SDK's
+  timeout and retries, and `evaluate_rerank_integration.py --embed-holdout`
+  uses `max_retries=0` with the SDK's timeout. They are manual, one-off tools. If a retry
+  happens inside `_embedded_articles()` during calibration, it counts toward
+  that script's embed-call limit (which then refuses rather than spending
+  more).
+
+## Agent pipeline reliability (V2 Phase 3, Milestone 3)
+
+### The pipeline, stage by stage
+
+| # | Stage | Receives → returns | On failure |
+| --- | --- | --- | --- |
+| 0 | `api.py` `/chat` | JSON → `ChatRequest` (stripped, 1–1000 chars) | 422; any exception from the agent → 500 `server_error` hand-off |
+| 1 | Input check | question → continue | `empty_question` |
+| 2 | Configuration | client, rerank settings, timeouts | `configuration_error` |
+| 3 | Retrieval: `retrieve_hybrid` = `kb.retrieve` (keyword; re-reads `data/kb.json`) + `retrieve_semantic` (embeds the question; compares with article embeddings) → RRF fusion | question → list of article dicts | exception → `retrieval_error`; nothing → `no_articles`; wrong type / missing fields / duplicate IDs → `retrieval_error` |
+| 4 | Rerank (optional) | articles → re-ordered subset | exception or invalid output → **fail open** (keep stage-3 articles); everything below the minimum score → `below_rerank_threshold` |
+| 5 | `generate_answer` | question + articles → `SupportAnswer` | chat failure → `llm_error`; unfinished → `incomplete_response`; unreadable → `malformed_response`; marker → `insufficient_evidence`; citations → `invalid_citations` / `no_citations` |
+| 6 | Final check `_checked_result` | `SupportAnswer` → `SupportAnswer` | any inconsistency → hand-off (see below) |
+
+### What the audit found
+
+Each suspicion was confirmed with an offline probe before any change.
+
+| Problem | Before | Now |
+| --- | --- | --- |
+| A chat response whose citations, sources, document ID or finish reason had an unexpected type (e.g. `citations=5`) | `TypeError` escaped `generate_answer` → `agent_error` (the same kind of failure as "no text", which gives `malformed_response`) | `malformed_response` |
+| A generator result whose `sources` is not a list (e.g. `5`) | **`answer_question` itself raised `TypeError`** (CLI traceback; API 500) | `invalid_citations` |
+| An answer (`escalate=False`) labelled `reason="llm_error"` or `None` | passed through to the customer | `agent_error` |
+| `escalate=None` (or any non-bool) | passed through; the API's response model then failed → 500 | `agent_error` |
+| A reranker returning the same IDs with changed title, text or URL | changed text sent to the answer generator | fails open to the retrieved articles |
+| **Editing `data/kb.json` while the app runs** | keyword retrieval saw the new file, but semantic retrieval kept the first-loaded articles (old text **and URL**) until restart | both halves see the current file; articles are embedded again only when their text changes |
+| Empty knowledge base | an embed request with an empty list was still sent | no document embedding request; `no_articles` |
+
+**Already handled correctly (left as they were):**
+- A failure in configuration, retrieval, reranking or generation gives a hand-off, never an exception.
+- A retrieval failure never becomes an empty "successful" answer: an exception gives `retrieval_error`, an empty result gives `no_articles`, and the chat model is not called in either case.
+- A broken `kb.json` (invalid JSON, missing file, missing fields, duplicate IDs) gives `retrieval_error`. Only the exception type is logged, not the message, which contains the file path.
+- Reranking fails open to valid hybrid results.
+- Logs carry only exception types and categories.
+- `api.py` turns anything unexpected into a 500 response with the standard hand-off body.
+
+### Changes
+
+- `answer.py`: reading the chat response (`_read_response`) is isolated. Any
+  error while reading it is `malformed_response`. An unexpected finish reason
+  is logged shortened to 40 characters.
+- `agent.py` final check:
+  - `escalate` must be a bool;
+  - an answer must have `reason="answered"`;
+  - `sources` must be a list or tuple;
+  - if the check itself crashes, the result is an `agent_error` hand-off,
+    never an unchecked answer.
+- `agent.py` rerank boundary: every reranked article must equal a retrieved
+  one in `id`, `title`, `text` and `url`. Extra fields such as `rerank_score`
+  are fine.
+- `semantic_kb.py`: the `lru_cache` is replaced by a cache keyed on the
+  embedded text (title + text of every article). Articles are re-read on every
+  question, as keyword retrieval already did. A URL-only edit uses the cached
+  vectors with the new URL; a text edit costs one new embed request.
+- `evals/evaluate_rerank_integration.py`: its recording generator now returns
+  `reason="answered"`, which the final check requires, and its tally maps that
+  back to "sent to generator". The output is byte-identical.
+
+The customer-facing contract, the hand-off message, the retry policy and the
+rerank settings are unchanged.
+
+### Tests
+
+`tests/test_agent_pipeline.py` (44 tests, offline) covers:
+- an unexpected exception at each stage, with a fake secret, a file path and
+  "Traceback" never reaching the answer or the logs;
+- retrieval returning nothing or the wrong type;
+- unreadable chat responses;
+- every new final-check rule, including a result that crashes the check;
+- rerankers that change articles, and valid re-ordering;
+- the **real hybrid retrieval** against a temporary `kb.json` with a fake Cohere
+  SDK: a broken KB, an embedding outage, edits being picked up, when articles
+  are embedded again, and an empty KB.
+
+The fake-SDK `semantic_kb` fixture moved from `tests/test_cohere_calls.py`
+to `tests/conftest.py` so both files share it.
+
+### Remaining limitations
+
+- **An embedding outage stops every question.** Keyword retrieval works
+  without Cohere, but hybrid retrieval currently fails as a whole
+  (`retrieval_error`). Falling back to keyword-only results would be a
+  behaviour change; it is not done here.
+- **The client passed to `answer_question` isn't used for embeddings.**
+  `semantic_kb` has its own client, created at import. A test or caller that
+  passes a fake client but uses the default retriever still gets the real
+  embedding client.
+- **One question reads `kb.json` twice** (keyword and semantic). An edit
+  landing between the two reads could mix versions for that one question.
+  The next question is consistent.
+- The final check doesn't look for the "insufficient evidence" marker itself.
+  `generate_answer` does; a custom generator would have to as well.

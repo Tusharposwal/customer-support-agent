@@ -57,7 +57,9 @@ class RecordingGenerator:
 
     def __call__(self, question, articles, client):
         self.calls.append(articles)
-        return SupportAnswer(answer="ok", sources=[], escalate=False, reason="answered")
+        first = articles[0]  # cite a supplied article, as a real answer must
+        source = {"id": first["id"], "title": first["title"], "url": first["url"]}
+        return SupportAnswer(answer="ok", sources=[source], escalate=False, reason="answered")
 
     @property
     def ids(self):
@@ -289,4 +291,4 @@ def test_agent_rejects_citation_of_an_article_the_threshold_removed():
                              generator=generate_answer,
                              rerank_config=RerankConfig(enabled=True, min_score=0.5))
 
-    assert_handoff(result, "no_citations")
+    assert_handoff(result, "invalid_citations")

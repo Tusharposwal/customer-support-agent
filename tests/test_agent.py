@@ -135,7 +135,8 @@ def test_successful_retrieval_and_grounded_answer():
 
 def test_generator_receives_retrieved_articles():
     received = {}
-    expected = SupportAnswer(answer="ok", sources=[], escalate=False, reason="answered")
+    source = {"id": "KB-001", "title": "Reset your password", "url": "https://support.example.com/password-reset"}
+    expected = SupportAnswer(answer="ok", sources=[source], escalate=False, reason="answered")
     client = FakeClient()
 
     def fake_generator(question, articles, client_arg):

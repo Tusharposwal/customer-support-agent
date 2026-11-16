@@ -176,19 +176,19 @@ def test_empty_question_means_no_api_call():
     assert client.calls == []
 
 
-def test_unknown_citation_ids_are_not_returned():
+def test_any_citation_of_an_unsupplied_article_rejects_the_whole_answer():
+    """Part of the text is attributed to a document we never sent, so it is not
+    grounded in our knowledge base. Dropping that source and showing the rest
+    would still show the ungrounded text."""
     client = FakeClient(make_response(cited_ids=("KB-999", "KB-001")))
 
-    result = generate_answer(QUESTION, ARTICLES, client)
-
-    assert result.escalate is False
-    assert [source["id"] for source in result.sources] == ["KB-001"]
+    assert_escalated(generate_answer(QUESTION, ARTICLES, client), "invalid_citations")
 
 
 def test_only_unknown_citation_ids_causes_escalation():
     client = FakeClient(make_response(cited_ids=("KB-999",)))
 
-    assert_escalated(generate_answer(QUESTION, ARTICLES, client), "no_citations")
+    assert_escalated(generate_answer(QUESTION, ARTICLES, client), "invalid_citations")
 
 
 def test_tool_sources_are_not_treated_as_documents():
@@ -239,3 +239,79 @@ def test_truncated_answer_causes_escalation():
     client = FakeClient(make_response(finish_reason="MAX_TOKENS"))
 
     assert_escalated(generate_answer(QUESTION, ARTICLES, client), "incomplete_response")
+
+
+def test_truncation_is_reported_even_without_text():
+    response = make_response(finish_reason="MAX_TOKENS")
+    response.message.content = None
+
+    assert_escalated(generate_answer(QUESTION, ARTICLES, FakeClient(response)), "incomplete_response")
+
+
+@pytest.mark.parametrize("finish_reason", ["ERROR", "TIMEOUT"])
+def test_generation_failure_is_an_llm_error_even_with_cited_text(finish_reason):
+    """Partial text from a failed generation must never reach the customer."""
+    client = FakeClient(make_response(finish_reason=finish_reason))
+
+    assert_escalated(generate_answer(QUESTION, ARTICLES, client), "llm_error")
+
+
+@pytest.mark.parametrize("finish_reason", ["TOOL_CALL", None, "SOMETHING_NEW"])
+def test_unexpected_finish_reason_is_malformed(finish_reason):
+    client = FakeClient(make_response(finish_reason=finish_reason))
+
+    assert_escalated(generate_answer(QUESTION, ARTICLES, client), "malformed_response")
+
+
+def test_stop_sequence_counts_as_a_finished_answer():
+    client = FakeClient(make_response(finish_reason="STOP_SEQUENCE"))
+
+    result = generate_answer(QUESTION, ARTICLES, client)
+
+    assert result.reason == "answered"
+    assert result.escalate is False
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "INSUFFICIENT\\_EVIDENCE",  # markdown-escaped underscore
+        "Insufficient evidence.",
+        "INSUFFICIENT EVIDENCE",
+        "insufficient-evidence",
+        "Sorry, **INSUFFICIENT_EVIDENCE**",
+    ],
+)
+def test_insufficient_evidence_variants_are_recognised_even_with_citations(text):
+    client = FakeClient(make_response(text=text, cited_ids=("KB-001",)))
+
+    assert_escalated(generate_answer(QUESTION, ARTICLES, client), "insufficient_evidence")
+
+
+def test_citation_without_a_document_id_is_invalid():
+    response = make_response(cited_ids=())
+    response.message.citations = [
+        Citation(start=0, end=4, text="Open", sources=[DocumentSource(type="document", id=None, document={})])
+    ]
+
+    assert_escalated(generate_answer(QUESTION, ARTICLES, FakeClient(response)), "invalid_citations")
+
+
+def test_answer_citing_every_supplied_article_is_accepted():
+    client = FakeClient(make_response(cited_ids=("KB-001", "KB-002")))
+
+    result = generate_answer(QUESTION, ARTICLES, client)
+
+    assert result.reason == "answered"
+    assert [source["id"] for source in result.sources] == ["KB-001", "KB-002"]
+
+
+def test_malformed_article_is_not_reported_as_an_llm_error():
+    """A broken article is a data bug: it raises before any API call instead of
+    being hidden behind reason="llm_error" (the agent reports it as retrieval_error)."""
+    client = FakeClient(make_response())
+    broken = [{"id": "KB-001", "title": "Reset your password", "text": "..."}]  # no url
+
+    with pytest.raises(KeyError):
+        generate_answer(QUESTION, broken, client)
+    assert client.calls == []

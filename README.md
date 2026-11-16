@@ -23,10 +23,24 @@ Copy-Item .env.example .env   # then put your Cohere API key in .env
 | `COHERE_RERANK_MODEL` | No | Rerank model; default `rerank-v5.0-pro`. |
 | `COHERE_RERANK_MIN_SCORE` | No | Number from 0 to 1. Articles below it are dropped; if none remain, the question is handed off (`below_rerank_threshold`). Default: unset (re-order only). No production value has been chosen yet. |
 | `COHERE_RERANK_TIMEOUT_SECONDS` | No | Rerank request timeout; default `5`. |
+| `COHERE_CHAT_TIMEOUT_SECONDS` | No | Most time the answer-generation step may take, including one retry; default `25` (max `120`). |
+| `COHERE_EMBED_TIMEOUT_SECONDS` | No | Same for each embedding request; default `10` (max `120`). |
 
-An invalid rerank setting (for example `COHERE_RERANK_ENABLED=ture`) makes
-`/chat` hand off with `reason="configuration_error"` rather than silently
+An invalid rerank or timeout setting (for example `COHERE_RERANK_ENABLED=ture`)
+makes `/chat` hand off with `reason="configuration_error"` rather than silently
 ignoring it.
+
+### Cohere errors and retries
+
+Chat and embedding requests never use the SDK's own retries or its
+300-second default timeout. A rate limit (429), a server error (500, 502, 503,
+504) or a connection that could not be opened is retried **once**, after about
+a second, and only if enough of the time budget is left. Timeouts, connections
+lost after the request may have been sent, authentication errors and invalid
+requests are not retried. If a request still fails, the customer gets
+the standard hand-off message (`llm_error` or `retrieval_error`); provider
+error text never reaches the customer or the logs. Details:
+`docs/LEARNING_NOTES.md`.
 
 ### Optional reranking
 
@@ -126,6 +140,7 @@ Environment variables (Render dashboard → your service → **Environment**):
 | `CHAT_RATE_LIMIT_PER_MINUTE` | No | Max `/chat` requests per minute, all visitors combined; default `20`. |
 | `CHAT_RATE_LIMIT_PER_DAY` | No | Max `/chat` requests per 24 hours, all visitors combined; default `300`. |
 | `COHERE_RERANK_*` | No | Optional reranking, off by default; see the settings table in [Setup](#setup-windows-powershell). |
+| `COHERE_CHAT_TIMEOUT_SECONDS`, `COHERE_EMBED_TIMEOUT_SECONDS` | No | Request time budgets; defaults `25` and `10`. |
 
 > **Never commit API keys.** Set `COHERE_API_KEY` only in Render's Environment
 > settings. `.env` is git-ignored and is for local use only.

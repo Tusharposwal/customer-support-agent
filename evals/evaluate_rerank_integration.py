@@ -197,7 +197,11 @@ def run_configuration(cases, retriever, client, config: RerankConfig) -> dict:
 
         def recording_generator(question, articles, client_arg):
             sent.extend(articles)
-            return SupportAnswer(answer="", sources=[], escalate=False, reason=SENT)
+            # A well-formed placeholder answer (it cites a supplied article), so
+            # the agent's final answer check accepts it.
+            first = articles[0]
+            source = {"id": first["id"], "title": first["title"], "url": first["url"]}
+            return SupportAnswer(answer="(recorded)", sources=[source], escalate=False, reason="answered")
 
         def counted_retriever(question):
             articles = retriever(question)
@@ -213,7 +217,8 @@ def run_configuration(cases, retriever, client, config: RerankConfig) -> dict:
             raise EvaluationError(f"Replay failed for {case['query']!r}: {failures[0]}") from failures[0]
 
         returned[case["query"]] = [article["id"] for article in sent]
-        reasons[result.reason] += 1
+        # "answered" here only means the question reached the (recording) generator.
+        reasons[SENT if result.reason == "answered" else result.reason] += 1
 
     metrics = rx.method_metrics(cases, returned)
     metrics["false_reject"] = sum(

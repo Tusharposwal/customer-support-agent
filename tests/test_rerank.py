@@ -302,7 +302,7 @@ def test_citation_of_an_article_removed_by_the_threshold_is_rejected():
 
     assert [d["id"] for d in client.chat_calls[0]["documents"]] == ["KB-001"]
     assert result.escalate is True
-    assert result.reason == "no_citations"
+    assert result.reason == "invalid_citations"
 
 
 # --- Import cost -------------------------------------------------------------

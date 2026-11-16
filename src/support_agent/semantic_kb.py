@@ -1,9 +1,9 @@
 import os
-from functools import lru_cache
 
 import cohere
 from dotenv import load_dotenv
 
+from support_agent.cohere_calls import CohereCallError, call_with_retries, embed_timeout
 from support_agent.kb import load_articles
 
 load_dotenv()
@@ -16,21 +16,57 @@ client = cohere.ClientV2(api_key=API_KEY)
 MODEL = "embed-v4.0"
 
 
-@lru_cache(maxsize=1)
+def _embed(texts: list[str], input_type: str) -> list[list[float]]:
+    """One vector per text. Bounded time, at most one retry for a temporary
+    failure (see cohere_calls); raises CohereCallError on failure."""
+
+    def request(request_options):
+        return client.embed(
+            texts=texts,
+            model=MODEL,
+            input_type=input_type,
+            embedding_types=["float"],
+            request_options=request_options,
+        )
+
+    response = call_with_retries(request, operation="embed", timeout_seconds=embed_timeout())
+
+    vectors = getattr(getattr(response, "embeddings", None), "float", None)
+    if (
+        not isinstance(vectors, list)
+        or len(vectors) != len(texts)
+        or any(not isinstance(vector, list) or not vector for vector in vectors)
+    ):
+        # Checked so a short list can't silently drop articles (zip) and be cached.
+        raise CohereCallError("embed", "malformed_response")
+    return vectors
+
+
+# (embedded texts, their vectors) for the most recent knowledge base.
+_document_cache: tuple[tuple[str, ...], list[list[float]]] | None = None
+
+
 def _embedded_articles():
-    """Load articles and embed them once per process."""
+    """The current articles with their embeddings.
+
+    Articles are re-read on every call, as keyword retrieval does, so both
+    halves of hybrid retrieval see the same knowledge base. The articles are
+    embedded again only when their text changes; a failure is not cached, so
+    the next question tries again.
+    """
+    global _document_cache
     articles = load_articles()
+    if not articles:
+        return []
 
-    texts = [f"{article['title']}\n{article['text']}" for article in articles]
+    texts = tuple(f"{article['title']}\n{article['text']}" for article in articles)
 
-    response = client.embed(
-        texts=texts,
-        model=MODEL,
-        input_type="search_document",
-        embedding_types=["float"],
-    )
-
-    embeddings = response.embeddings.float
+    cached = _document_cache
+    if cached is not None and cached[0] == texts:
+        embeddings = cached[1]
+    else:
+        embeddings = _embed(list(texts), "search_document")
+        _document_cache = (texts, embeddings)
 
     return [
         {**article, "embedding": embedding}
@@ -55,14 +91,7 @@ def retrieve_semantic(query: str, top_k: int = 3) -> list[dict]:
     if not query.strip() or top_k <= 0:
         return []
 
-    response = client.embed(
-        texts=[query],
-        model=MODEL,
-        input_type="search_query",
-        embedding_types=["float"],
-    )
-
-    query_embedding = response.embeddings.float[0]
+    query_embedding = _embed([query], "search_query")[0]
     scored_articles = []
 
     for article in _embedded_articles():
