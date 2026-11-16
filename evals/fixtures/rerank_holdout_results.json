@@ -1,0 +1,513 @@
+{
+  "version": 1,
+  "dataset": "holdout",
+  "document_format": "title-text-v1",
+  "model": "rerank-v5.0-pro",
+  "kb_sha256": "eea5a4adb186055557b443dd02537754d31735ca7f2c86b787778f19bc278092",
+  "questions_sha256": "7f068bb2bc676a1df354a7446bb9ff8895849227f7e9aecbce34bf71836ef637",
+  "dataset_sha256": "fc12a57cd3f486e58c4d9db02e95c77938b9b75967a93c64fd2a255f3f27eadf",
+  "created_at": "2026-11-16T13:49:44+00:00",
+  "results": {
+    "I don't remember my password, what should I do?": {
+      "query": "I don't remember my password, what should I do?",
+      "expected_id": "KB-001",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.76168156
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.024757348
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.006034306
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 873.4,
+      "completed_at": "2026-11-16T13:49:45+00:00"
+    },
+    "Where do I find the Forgot password option?": {
+      "query": "Where do I find the Forgot password option?",
+      "expected_id": "KB-001",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.7720872
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.015601228
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.009786159
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 471.8,
+      "completed_at": "2026-11-16T13:49:45+00:00"
+    },
+    "I keep typing the wrong password and can't get in": {
+      "query": "I keep typing the wrong password and can't get in",
+      "expected_id": "KB-001",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.4116432
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.010814153
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.0051528793
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 737.3,
+      "completed_at": "2026-11-16T13:49:46+00:00"
+    },
+    "Which email do the password reset instructions get sent to?": {
+      "query": "Which email do the password reset instructions get sent to?",
+      "expected_id": "KB-001",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.69413996
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.0071972352
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.0032524543
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 457.9,
+      "completed_at": "2026-11-16T13:49:47+00:00"
+    },
+    "How long do I have to ask for my money back?": {
+      "query": "How long do I have to ask for my money back?",
+      "expected_id": "KB-002",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.7715229
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.019867403
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.008399777
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 450.3,
+      "completed_at": "2026-11-16T13:49:47+00:00"
+    },
+    "I bought this six weeks ago, can I still get a refund?": {
+      "query": "I bought this six weeks ago, can I still get a refund?",
+      "expected_id": "KB-002",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.57248074
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.0420991
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.0070312778
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 780.9,
+      "completed_at": "2026-11-16T13:49:48+00:00"
+    },
+    "What details should I include when I contact you about a refund?": {
+      "query": "What details should I include when I contact you about a refund?",
+      "expected_id": "KB-002",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.72986114
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.026981395
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.010616579
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 476.2,
+      "completed_at": "2026-11-16T13:49:48+00:00"
+    },
+    "How can I see the delivery status of something I bought?": {
+      "query": "How can I see the delivery status of something I bought?",
+      "expected_id": "KB-003",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.77195644
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.13058524
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.0068302243
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 537.3,
+      "completed_at": "2026-11-16T13:49:49+00:00"
+    },
+    "Where can I check where my parcel is right now?": {
+      "query": "Where can I check where my parcel is right now?",
+      "expected_id": "KB-003",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.62457514
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.032918338
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.004732817
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 475.7,
+      "completed_at": "2026-11-16T13:49:49+00:00"
+    },
+    "Is there a way to follow my delivery online?": {
+      "query": "Is there a way to follow my delivery online?",
+      "expected_id": "KB-003",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.68652916
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.033747554
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.008282875
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 456.6,
+      "completed_at": "2026-11-16T13:49:50+00:00"
+    },
+    "I want to cancel an order I placed this morning": {
+      "query": "I want to cancel an order I placed this morning",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.29235724
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.12189467
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.010558437
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 453.0,
+      "completed_at": "2026-11-16T13:49:50+00:00"
+    },
+    "Will my refund go back to my card or come as store credit?": {
+      "query": "Will my refund go back to my card or come as store credit?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.16436216
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.01489548
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.0030686492
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 468.0,
+      "completed_at": "2026-11-16T13:49:51+00:00"
+    },
+    "How many days does it take for a refund to reach my bank account?": {
+      "query": "How many days does it take for a refund to reach my bank account?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.24979138
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.032316063
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.004351339
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 463.7,
+      "completed_at": "2026-11-16T13:49:51+00:00"
+    },
+    "How do I switch the email on my account to a new one?": {
+      "query": "How do I switch the email on my account to a new one?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.053671334
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.0070347344
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.0068038576
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 454.5,
+      "completed_at": "2026-11-16T13:49:52+00:00"
+    },
+    "I got a new mobile number, how do I update it on my profile?": {
+      "query": "I got a new mobile number, how do I update it on my profile?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.02478466
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.00451804
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.003614636
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 591.9,
+      "completed_at": "2026-11-16T13:49:52+00:00"
+    },
+    "I moved house, can you send my order to my new address instead?": {
+      "query": "I moved house, can you send my order to my new address instead?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.08189313
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.04264466
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.0042837006
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 510.3,
+      "completed_at": "2026-11-16T13:49:53+00:00"
+    },
+    "Please close my account permanently": {
+      "query": "Please close my account permanently",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.05304914
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.036100447
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.017708424
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 926.8,
+      "completed_at": "2026-11-16T13:49:54+00:00"
+    },
+    "How do I turn on two-factor authentication?": {
+      "query": "How do I turn on two-factor authentication?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.024470564
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.0027672588
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.0025885848
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 438.4,
+      "completed_at": "2026-11-16T13:49:54+00:00"
+    },
+    "Can I change my username?": {
+      "query": "Can I change my username?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.04738367
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.0069757197
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.0064585344
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 535.6,
+      "completed_at": "2026-11-16T13:49:55+00:00"
+    },
+    "What's a good recipe for banana bread?": {
+      "query": "What's a good recipe for banana bread?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.00093048095
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.00082718005
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.0007758571
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 454.2,
+      "completed_at": "2026-11-16T13:49:55+00:00"
+    }
+  },
+  "updated_at": "2026-11-16T13:49:55+00:00"
+}

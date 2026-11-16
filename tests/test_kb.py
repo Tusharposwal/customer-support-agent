@@ -63,6 +63,37 @@ def test_email_change_is_not_supported():
     assert results == []
 
 
+def test_forgot_password_query():
+    results = retrieve("I forgot my password and cannot sign in")
+    assert results
+    assert results[0]["id"] == "KB-001"
+
+
+def test_where_is_my_order_ranks_tracking_first():
+    results = retrieve("Where is my order?")
+    assert results
+    assert results[0]["id"] == "KB-003"
+
+
+def test_refund_order_number_query():
+    results = retrieve("Where do I enter my order number for a refund?")
+    assert results
+    assert results[0]["id"] == "KB-002"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "How do I update my email?",
+        "How do I delete my account?",
+        "How do I change my phone number?",
+        "How do I change my shipping address?",
+    ],
+)
+def test_unsupported_account_questions(query):
+    assert retrieve(query) == []
+
+
 def test_load_valid_temporary_kb(tmp_path):
     articles = [_valid_article(), _valid_article(id="KB-T02")]
     path = _write_kb(tmp_path, articles)

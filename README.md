@@ -19,6 +19,23 @@ Copy-Item .env.example .env   # then put your Cohere API key in .env
 | --- | --- | --- |
 | `COHERE_API_KEY` | Yes | Cohere API key (never commit `.env`). |
 | `COHERE_CHAT_MODEL` | No | Chat model; defaults to `command-a-03-2025`. |
+| `COHERE_RERANK_ENABLED` | No | `true`/`false` (also `1`/`0`, `yes`/`no`). Turns on optional reranking; default `false`. |
+| `COHERE_RERANK_MODEL` | No | Rerank model; default `rerank-v5.0-pro`. |
+| `COHERE_RERANK_MIN_SCORE` | No | Number from 0 to 1. Articles below it are dropped; if none remain, the question is handed off (`below_rerank_threshold`). Default: unset (re-order only). No production value has been chosen yet. |
+| `COHERE_RERANK_TIMEOUT_SECONDS` | No | Rerank request timeout; default `5`. |
+
+An invalid rerank setting (for example `COHERE_RERANK_ENABLED=ture`) makes
+`/chat` hand off with `reason="configuration_error"` rather than silently
+ignoring it.
+
+### Optional reranking
+
+With `COHERE_RERANK_ENABLED=true`, the hybrid-retrieved articles are re-ordered
+by Cohere Rerank before the answer is generated (one extra API request per
+question; 0.44–1.30 s in our experiments). Answer generation and citation checking
+are unchanged. If the rerank request fails or times out, the agent logs a
+warning and carries on with the hybrid articles (it does not retry). See
+`docs/LEARNING_NOTES.md` for the design and the offline evaluation.
 
 ## Run the application locally
 
@@ -108,6 +125,7 @@ Environment variables (Render dashboard → your service → **Environment**):
 | `COHERE_CHAT_MODEL` | No | Chat model; default `command-a-03-2025`. |
 | `CHAT_RATE_LIMIT_PER_MINUTE` | No | Max `/chat` requests per minute, all visitors combined; default `20`. |
 | `CHAT_RATE_LIMIT_PER_DAY` | No | Max `/chat` requests per 24 hours, all visitors combined; default `300`. |
+| `COHERE_RERANK_*` | No | Optional reranking, off by default; see the settings table in [Setup](#setup-windows-powershell). |
 
 > **Never commit API keys.** Set `COHERE_API_KEY` only in Render's Environment
 > settings. `.env` is git-ignored and is for local use only.
@@ -135,10 +153,19 @@ python -m support_agent.agent "How do I reset my password?"
 ## Tests
 
 ```powershell
-pytest tests/test_kb.py tests/test_answer.py tests/test_agent.py tests/test_api.py
+pytest
 ```
 
-These tests run offline. `tests/test_semantic_kb.py` calls the Cohere API.
+All tests run offline except `tests/test_semantic_kb.py`, which calls the
+Cohere API and is skipped unless the `RUN_LIVE_COHERE_TESTS` environment
+variable is `1`.
+
+Offline evaluation of the rerank integration (no API calls; original and
+holdout questions reported separately):
+
+```powershell
+python evals/evaluate_rerank_integration.py
+```
 
 ## Docs
 

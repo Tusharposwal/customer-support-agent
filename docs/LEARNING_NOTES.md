@@ -73,6 +73,8 @@ changing the validator.
 mentions "email address" (score 0.667 ≥ `MIN_SCORE` 0.30). Fixing this is a
 retrieval change and is tracked separately.
 
+**Resolved** in V2 Phase 2. See "Keyword title-match rule" at the end of this file.
+
 ## Grounded answer generation (Phase 2, Task 1)
 
 ### What it does
@@ -412,3 +414,515 @@ running with no protection.
 - `tests/test_rate_limit.py`: limiter unit tests with a fake clock.
 - `tests/test_api.py`: endpoint-level limit tests.
 - `.python-version`: pins Python 3.10.11 for Render.
+
+## Keyword title-match rule (V2 Phase 2: RAG improvement)
+
+### The problem
+
+"How do I change my email address?" returned KB-001 (Reset your password).
+After stop words are removed, the question becomes `{change, email, address}`.
+KB-001's body ends with "...sent to your registered **email address**", so it
+scored 2/3 = 0.667, which was higher than many correct matches (0.5).
+
+Keyword retrieval caused this. Hybrid RRF then made it worse: a keyword
+rank-1 article always scores at least `1/61 + 1/63`, more than any article
+found only by semantic search (at most `1/61`). So KB-001 was always first
+in hybrid results.
+
+Raising `MIN_SCORE` could not fix it: correct matches such as "Can I get a
+refund?", "How can I track my shipment?" and "Where is my order?" score only 0.5.
+
+### The fix
+
+`retrieve()` in `src/support_agent/kb.py` now keeps an article only if
+**both** are true:
+
+1. its score is at least `MIN_SCORE` (unchanged, 0.30), and
+2. at least one question word appears in the article's **title**.
+
+A title says what an article is *about*. Body text often mentions other
+things only in passing.
+
+### How it was measured
+
+The dataset (`evals/retrieval_queries.json`) was expanded first, from 10 to 15
+questions. The baseline was recorded on that expanded set before `kb.py` was
+changed. The new questions are:
+
+- Answerable: "Where do I enter my order number for a refund?" (KB-002)
+- Unsupported: update my email, delete my account, change my phone number,
+  change my shipping address
+
+Commands (offline, no Cohere calls):
+
+```
+python evals/evaluate_retrieval.py
+python -m pytest tests/test_kb.py
+```
+
+| Metric (keyword, 15 questions) | Before | After |
+| --- | --- | --- |
+| Overall accuracy | 8/15 (53%) | 13/15 (87%) |
+| Recall@3 (9 answerable) | 7/9 (78%) | 7/9 (78%) |
+| Top-1 accuracy | 6/9 | 7/9 |
+| Abstention accuracy (6 unsupported) | 1/6 (17%) | 6/6 (100%) |
+| `tests/test_kb.py` | 37 passed, 6 failed | 43 passed |
+
+Top-1 is counted by hand from the eval output, because `evaluate_retrieval.py`
+does not print it.
+
+### Every changed result
+
+| Question | Before | After | Why |
+| --- | --- | --- | --- |
+| How do I change my email address? | KB-001 | none | "email", "address" are only in KB-001's body |
+| How do I update my email? | KB-001 | none | "email" is only in KB-001's body |
+| How do I delete my account? | KB-003 | none | "account" is only in KB-003's body |
+| How do I change my phone number? | KB-002 | none | "number" is only in KB-002's body ("order number") |
+| How do I change my shipping address? | KB-001, KB-003 | none | "address" and "shipping" are only in body text |
+| Where is my order? | KB-002, KB-003 | KB-003 | KB-002 mentions "order" only in its body. Before, the 0.5 tie was broken by file order. |
+
+Unchanged results include password, forgot password, login, refund, track
+shipment, the refund order-number question and Mars. Every one of the
+correct matches already shared a word with its article's title.
+
+### Trade-offs and known limits
+
+- **Body-only matches are dropped.** A relevant question that matches only
+  body words (for example "What if I miss the 30 days?" vs KB-002) now gets
+  no keyword result. No current dataset question depends on this. In hybrid,
+  semantic search can still find such articles.
+- **Titles now matter for retrieval.** A new article needs a title that uses
+  the words customers actually type.
+- **Still a false positive:** "Can I cancel my order?" returns KB-003,
+  because "order" is in its title ("Track an order"). The rule only looks for
+  one shared title word, not for the question's intent.
+- **Still not found:** "I want my money back for a purchase" and "My package
+  has not arrived". These need synonyms, which is the job of semantic search.
+- **Hybrid still never abstains.** `retrieve_semantic` has no similarity
+  threshold, so it returns all 3 articles for every question. This change
+  removes the misleading keyword #1 for the email question, but the LLM
+  citation check is still the final safety net. A calibrated semantic
+  threshold is the next step, and it needs live Cohere scores.
+
+## Semantic threshold calibration (V2 Phase 2, Milestone 2)
+
+### Why
+
+`retrieve_semantic()` has no minimum similarity. It always returns the top 3,
+which here means **every** article, so hybrid retrieval never returns "no
+match". Before adding a threshold, we measured whether cosine scores can
+tell answerable questions apart from unsupported ones at all.
+
+### Method
+
+- `evals/calibrate_semantic.py --generate` made **exactly two** Cohere embed
+  calls, counted and capped in code:
+  1. the 3 articles (`embed-v4.0`, `search_document`), via the production
+     `semantic_kb._embedded_articles()`;
+  2. all 17 dataset questions in one batch (`embed-v4.0`, `search_query`).
+- The vectors (1536 dimensions) are saved in
+  `evals/fixtures/semantic_embeddings.json` with the model, input types,
+  a KB-text hash and a question-list hash. If the KB or the questions change,
+  the fixture is rejected and must be regenerated. Labels (`expected_id`) are
+  read live, so relabelling needs no new calls. `--generate` refuses to
+  overwrite an existing fixture.
+- `python evals/calibrate_semantic.py` then runs **offline**. It never imports
+  `semantic_kb`, because that module needs an API key at import time.
+- For each question:
+  - answerable → the **expected article's** score (a threshold must keep it);
+  - unsupported → the **highest** article score (a threshold must cut it).
+- Every observed score is tried as a threshold (accept if score ≥ threshold):
+  - **false rejection** = answerable questions whose expected article is cut;
+  - **false acceptance** = unsupported questions where any article passes;
+  - **wrong article** = answerable questions where a non-expected article passes.
+
+Two questions were added to the dataset: "Can I cancel my order?"
+(unsupported) and "How do I check refund eligibility?" (KB-002).
+
+### Findings (embed-v4.0, 17 questions)
+
+**There is no clean separation.** The lowest answerable score is 0.2550
+("My package has not arrived" → KB-003). The highest unsupported score is
+0.4576 ("How do I change my email address?" → KB-001). They overlap by 0.2026.
+
+Account-type questions (email, phone, delete account) are semantically close
+to the password article. The email question scores 0.4576 against KB-001,
+which is higher than 6 of the 10 correct matches. Embeddings measure topic
+similarity. They cannot tell that this article does not answer the
+question.
+
+| Threshold | False reject | False accept | Wrong article |
+| --- | --- | --- | --- |
+| 0.0719 (current behaviour) | 0/10 | 7/7 | 10/10 |
+| 0.2550 | 0/10 | 6/7 | 1/10 |
+| 0.3211 | 2/10 | 4/7 | 1/10 |
+| 0.3503 | 4/10 | 4/7 | 0/10 |
+| 0.4386 | 4/10 | 1/7 | 0/10 |
+| 0.4665 | 6/10 | 0/7 | 0/10 |
+
+(Full table: run the script.)
+
+- With **zero false rejections**, a threshold can only reject the Mars
+  question.
+- Rejecting **all** unsupported questions also rejects 6 of 10 good questions,
+  including "Can I get a refund?" (0.2632) and the paraphrases that only
+  semantic search finds ("money back" 0.3496, "package not arrived" 0.2550).
+- The top-two margin does not separate the groups either. "Package not
+  arrived" has margin 0.0274, while the email question has 0.2419.
+
+### Decision status
+
+No threshold was implemented. The data does not support a single cut-off
+that protects answerable questions while removing unsupported ones. The only
+zero-false-reject range, (0.0719, 0.2550], is defined by a single
+nonsense question (Mars), which is too little evidence for a rule.
+
+### Testing and cost safety
+
+- `tests/test_calibrate_semantic.py`: offline tests for scoring, metrics,
+  separation, fixture validation, and generation with a fake client
+  (exactly 2 calls, refuses to overwrite). Offline tests block `cohere` and
+  `semantic_kb` imports to prove that no call is possible.
+- `tests/test_semantic_kb.py` (live) now runs only with
+  `RUN_LIVE_COHERE_TESTS=1`, so plain `pytest` makes no API calls.
+
+## Cohere rerank experiment (V2 Phase 2, Milestone 3)
+
+### Question
+
+Cosine similarity could not separate answerable from unsupported questions.
+Can a **reranker** do better? A reranker reads the question and each article
+together and scores how relevant the article is to that question. Embeddings
+compare two separately computed vectors, so they mostly measure topic
+similarity. This was an experiment. Production retrieval is unchanged.
+
+### Method
+
+- `evals/rerank_experiment.py`: `--dry-run` shows the plan, `--run` makes the
+  calls, and with no flag it prints the offline report.
+- Each question was sent once to `ClientV2.rerank(model, query, documents)`
+  with all 3 articles formatted as `Title: <title>\nText: <text>` (no URL).
+  The SDK silently retries 429/5xx responses twice by default, so every call
+  passes `request_options={"max_retries": 0}`. One call in the code is
+  exactly one request.
+- The model comes from `COHERE_RERANK_MODEL` (default `rerank-v5.0-pro`). The
+  approved fallback `rerank-v3.5` is used only if the primary returns a
+  400/404 error that is about the model, and only before any result was saved.
+  Every other error stops the run.
+- Results go to `evals/fixtures/rerank_results.json`. The file stores the
+  model, document format, KB/question/dataset hashes, and per question: the
+  returned indices mapped to article IDs, the relevance scores, billed units
+  and latency. Each result is saved immediately (atomic write). A re-run only
+  requests missing questions, never overwrites a saved result, refuses
+  invalid or out-of-date files instead of re-requesting, and is capped at 17
+  successful calls.
+- Comparison, all offline, using the same metric definitions as the
+  semantic calibration:
+  - **Keyword**: `kb.retrieve`.
+  - **Semantic**: cosine scores from the saved embedding fixture.
+  - **Hybrid**: the real `hybrid_kb.retrieve_hybrid`, with `retrieve_semantic`
+    replaced by a version that reads the saved vectors (no API key, no client).
+  - **Rerank**: the saved scores.
+
+### Run
+
+17 successful calls, 0 failed. `rerank-v5.0-pro` was available, so the
+fallback was not used. The API returned no `billed_units.search_units`
+(stored as `null`). Latency: average 601 ms, median 591 ms, maximum 1299 ms
+(the first call, which includes connection setup), minimum 441 ms.
+
+### Results (17 questions: 10 answerable, 7 unsupported)
+
+| Method (no threshold) | Top-1 | Recall@3 | False accept | Abstain | Wrong article |
+| --- | --- | --- | --- | --- | --- |
+| Keyword | 8/10 | 8/10 | 1/7 | 6/7 | 0/10 |
+| Semantic | 10/10 | 10/10 | 7/7 | 0/7 | 10/10 |
+| Hybrid | 10/10 | 10/10 | 7/7 | 0/7 | 10/10 |
+| Rerank | 10/10 | 10/10 | 7/7 | 0/7 | 10/10 |
+
+Without a threshold, reranking only reorders, and the order was already
+correct. Its value is in the **scores**:
+
+| Rerank threshold | False reject | False accept | Wrong article |
+| --- | --- | --- | --- |
+| 0.0008 (accept all) | 0/10 | 7/7 | 10/10 |
+| 0.0900 | 0/10 | 2/7 | 4/10 |
+| **0.4232** | **0/10** | **1/7** | **0/10** |
+| 0.4720 | 1/10 | 1/7 | 0/10 |
+| 0.6457 | 2/10 | 0/7 | 0/10 |
+
+- Lowest answerable score: **0.4232** ("My package has not arrived" → KB-003).
+- Highest unsupported score: **0.4746** ("Can I cancel my order?" → KB-002,
+  the refund article).
+- **No clean separation** (overlap 0.0514), but it comes from that **one**
+  question. The other six unsupported questions all score **≤ 0.0900**,
+  including every email/account question (email change 0.0412).
+- Any threshold in **(0.0900, 0.4232]** gives 0/10 false rejections,
+  1/7 false acceptances and 0/10 wrong-article acceptances on this data. The
+  best semantic threshold with zero false rejections still accepted 6/7.
+
+### Conclusion and limits
+
+- Reranking separates these questions far better than cosine similarity.
+  The email-change case that started this phase is now clearly rejected.
+- A rerank threshold looks promising, but **no value has been chosen**.
+  17 questions are too few to fix one. The range was found on the same data
+  it would be judged on.
+- "Can I cancel my order?" still scores high against the refund article.
+  The reranker treats cancellation and refunds as related. That case would
+  still rely on the LLM citation check.
+- Scores belong to `rerank-v5.0-pro` and this document format. Changing
+  either means running the experiment again.
+- In production, reranking would add one extra request (about 0.45–0.75 s
+  here) to every customer question.
+
+## Rerank holdout dataset (V2 Phase 2, Milestone 4)
+
+### Why a holdout set
+
+The rerank score range that looked promising, (0.0900, 0.4232], was found by
+looking at the **same** 17 questions it would be judged on. Any range found
+that way fits those particular questions, partly by luck. A **holdout set**
+is a separate group of questions that played no part in that analysis. If
+the pattern still holds on questions it has never "seen", we can trust it
+more. If it does not, we have avoided shipping a threshold that only worked
+on our own examples.
+
+### The dataset
+
+`evals/rerank_holdout_queries.json` uses the same schema as
+`retrieval_queries.json` (`query`, `expected_id`) and has 20 new questions:
+
+- **10 answerable** (4 × KB-001, 3 × KB-002, 3 × KB-003), written as
+  paraphrases and everyday customer wording, not copies of the original
+  questions.
+- **10 unsupported** (`null`): cancellation, refund details the article does
+  not cover (refund method and payout time), changing email / phone /
+  shipping address, closing the account, two-factor authentication, changing
+  a username, and one unrelated question.
+
+Each label was checked against the article text, not against shared
+keywords. For example, "How many days does it take for a refund to reach
+my bank account?" mentions refunds, but KB-002 only covers the 30-day request
+window, so it is labelled unsupported.
+
+### Rules that keep it independent
+
+- The questions were written and labelled **without** looking at rerank
+  scores, and no question was added or removed because of a score.
+- The original 17-question dataset and `evals/fixtures/rerank_results.json`
+  are unchanged. A test checks that the original questions still match the
+  hash stored in the saved results.
+- Holdout results are saved **separately** from the original experiment, in
+  `evals/fixtures/rerank_holdout_results.json` (see below). No threshold was
+  chosen from them.
+- `tests/test_rerank_holdout.py` checks the structure: 20 questions, 10/10
+  split, valid article IDs covering all three articles, no duplicates and no
+  overlap with the original dataset (ignoring case and punctuation).
+
+### Holdout run
+
+`python evals/rerank_experiment.py --run --dataset holdout` made exactly the
+approved 20 rerank calls (20 successful, 0 failed). It used the same settings
+as Milestone 3: `rerank-v5.0-pro` (no fallback needed), the `title-text-v1`
+document format, and SDK retries off. Its separate call limit is 20. The
+results file is marked `"dataset": "holdout"`, so it can't be mixed up with
+the original results.
+
+- Billed search units: not returned (`null`), as before.
+- Latency: average 550.7 ms, median 473.8 ms, minimum 438.4 ms, maximum 926.8 ms.
+
+### Holdout results (20 questions: 10 answerable, 10 unsupported)
+
+| Method (no threshold) | Top-1 | Recall@3 | False accept | Abstain | Wrong article |
+| --- | --- | --- | --- | --- | --- |
+| Keyword | 3/10 | 3/10 | 1/10 | 9/10 | 0/10 |
+| Rerank | 10/10 | 10/10 | 10/10 | 0/10 | 10/10 |
+
+- Lowest answerable score: **0.4116** ("I keep typing the wrong password and
+  can't get in" → KB-001).
+- Highest unsupported score: **0.2924** ("I want to cancel an order I placed
+  this morning" → KB-002).
+- On this set there is a **clean separation**: any threshold in
+  **(0.2924, 0.4116]** (gap 0.1193) gives 0 false rejections, 0 false
+  acceptances and 0 wrong-article acceptances.
+- The three highest unsupported scores are all refund or cancellation
+  questions scored against KB-002 (0.1644–0.2924). Every account question
+  (email, phone, address, closing the account, 2FA, username) scored
+  ≤ 0.0819.
+- Keyword retrieval finds only 3/10 of these paraphrased answerable questions,
+  which shows why the semantic and rerank signals matter.
+
+### What the two runs mean together
+
+- The two sets **disagree** on where a threshold could go. On the original
+  set, "Can I cancel my order?" scores 0.4746, which is above the holdout
+  set's entire clean range. So no single value works on both sets.
+- The holdout set was looked at once this run was made, so it can no longer
+  serve as independent validation. The two sets were not combined to pick a
+  value.
+- Cancellation and refund-adjacent questions are the weak spot. Any future
+  validation set should include more of them.
+
+## Optional reranking in the agent (V2 Phase 2, Milestone 5)
+
+### What changed
+
+Reranking is now an **optional step** inside `answer_question()`. It is **off
+by default**; with it off, the agent behaves exactly as before.
+
+```
+answer_question(question)
+  1. empty question?               → hand off "empty_question"
+  2. client + rerank settings      → hand off "configuration_error" if invalid
+  3. hybrid retrieval              → hand off "retrieval_error" / "no_articles"
+  4. rerank (only if enabled)
+       success                     → articles re-ordered (and filtered, if a minimum score is set)
+       nothing ≥ minimum score     → hand off "below_rerank_threshold"
+       API error / timeout / bad response → log a warning, keep the hybrid articles
+  5. generate_answer(...)          → unchanged, including the citation check
+```
+
+### Settings
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `COHERE_RERANK_ENABLED` | `false` | `true/1/yes` or `false/0/no`. Anything else is an error. |
+| `COHERE_RERANK_MODEL` | `rerank-v5.0-pro` | Model sent to Cohere Rerank. |
+| `COHERE_RERANK_MIN_SCORE` | unset | 0–1. Unset means "re-order only, never remove". **No production value has been chosen.** |
+| `COHERE_RERANK_TIMEOUT_SECONDS` | `5` | Must be greater than 0. |
+
+A blank value means "use the default" (same rule as the rate-limit settings).
+An **invalid** value is not ignored: the agent hands off with
+`configuration_error` and logs it. Otherwise a typo such as `ture` would
+silently leave reranking off while you think it is on.
+
+### Files
+
+- `src/support_agent/rerank.py`: `RerankConfig`, `config_from_env()`,
+  `document_text()` and `rerank_articles()`. It never creates a Cohere client
+  (the agent passes its existing one), so importing it is free.
+- `src/support_agent/agent.py`: two new optional arguments, `reranker` and
+  `rerank_config` (fakes can be passed in tests, like `retriever`), and the
+  step shown above.
+- `answer.py`, `hybrid_kb.py`, `semantic_kb.py`, `api.py` and the web page are
+  unchanged. The web page only looks at `escalate`, so the new reason code
+  needs no frontend change.
+
+### How `rerank_articles()` works
+
+1. Sends the question and one document per article to `client.rerank()`. The
+   document text is `"Title: <title>\nText: <text>"`, exactly the format used
+   in the experiments, so the saved scores apply. A test checks this.
+2. Uses `request_options={"max_retries": 0, "timeout": <seconds>}`. This was
+   checked in the installed SDK (cohere 7.3.0): `RequestOptions` has `timeout`
+   (seconds, float) and `max_retries`. Without them the SDK waits up to 300 s
+   and silently retries 429/5xx/408/409 and connection errors twice.
+3. Checks the response: every article must appear exactly once with a valid
+   index and a finite numeric score; otherwise it raises `RerankError`.
+4. Returns **copies** of the articles, highest score first, with every
+   original field kept and a `rerank_score` added. With a minimum score,
+   articles below it are dropped (a score equal to the minimum is kept).
+
+`generate_answer` only sends `id`, `title`, `text` and `url` to the chat model,
+so the extra field is ignored. Because citations are only accepted for the
+articles passed in, **an article removed by the minimum score can never be
+cited**.
+
+### Failure policy: fail open
+
+If the rerank request fails (API error, rate limit, timeout, malformed
+response), the agent **continues with the original hybrid articles in their
+original order**. Why:
+
+- Reranking is an extra improvement, not the only safety check. The LLM
+  citation check still runs on the hybrid articles, which is the same
+  protection the agent had before reranking existed.
+- Turning an outage into a hand-off would report "we can't answer this" when
+  the real problem is infrastructure. That would hide the outage and look like
+  an unsupported question.
+- Cost of this choice: while rerank is down, the extra filtering is lost.
+  The warning log makes that visible.
+
+`below_rerank_threshold` is used **only** when reranking succeeded and every
+article scored below the configured minimum.
+
+Logs contain the exception type and article IDs only: never the question, an
+API response body or a key. Customers only ever see an answer or the fixed
+hand-off message.
+
+### Offline evaluation
+
+`python evals/evaluate_rerank_integration.py` sends every question through the
+**real** `answer_question()`:
+
+- the real `hybrid_kb.retrieve_hybrid`, with semantic scores computed from
+  saved embeddings;
+- a replay client whose `rerank()` returns the saved Cohere scores. If the
+  replay cannot reproduce a saved result it stops with an error, so the
+  agent's fail-open behaviour can't hide a broken evaluation;
+- a recording generator in place of the LLM.
+
+The holdout questions needed query embeddings for the hybrid step. These were
+created with **one** batched embed call (`--embed-holdout`, 20 questions,
+`embed-v4.0`, `search_query`, retries off) and saved in
+`evals/fixtures/semantic_holdout_embeddings.json`. That file also holds hashes
+of the knowledge base and the questions. Article embeddings are reused from
+`semantic_embeddings.json`. No chat or rerank calls were made.
+
+Metrics count the articles that would reach answer generation:
+
+- "false reject": an answerable question handed off;
+- "false accept": an unsupported question that still reaches the LLM;
+- "wrong article": a non-expected article passed along with an answerable question.
+
+**Original (17 questions: 10 answerable, 7 unsupported)**
+
+| Configuration | Top-1 | False reject | False accept | Wrong article |
+| --- | --- | --- | --- | --- |
+| Hybrid only | 10/10 | 0/10 | 7/7 | 10/10 |
+| Hybrid + rerank | 10/10 | 0/10 | 7/7 | 10/10 |
+| min 0.10 | 10/10 | 0/10 | 1/7 | 4/10 |
+| min 0.20 | 10/10 | 0/10 | 1/7 | 1/10 |
+| min 0.30 | 10/10 | 0/10 | 1/7 | 0/10 |
+| min 0.40 | 10/10 | 0/10 | 1/7 | 0/10 |
+| min 0.50 | 8/10 | 2/10 | 0/7 | 0/10 |
+
+**Holdout (20 questions: 10 answerable, 10 unsupported)**
+
+| Configuration | Top-1 | False reject | False accept | Wrong article |
+| --- | --- | --- | --- | --- |
+| Hybrid only | 10/10 | 0/10 | 10/10 | 10/10 |
+| Hybrid + rerank | 10/10 | 0/10 | 10/10 | 10/10 |
+| min 0.10 | 10/10 | 0/10 | 3/10 | 1/10 |
+| min 0.20 | 10/10 | 0/10 | 2/10 | 0/10 |
+| min 0.30 | 10/10 | 0/10 | 0/10 | 0/10 |
+| min 0.40 | 10/10 | 0/10 | 0/10 | 0/10 |
+| min 0.50 | 9/10 | 1/10 | 0/10 | 0/10 |
+
+What this shows:
+
+- Hybrid retrieval always passes all 3 articles, so reranking **without** a
+  minimum score only changes the order. Top-1 is already 10/10 on both sets,
+  so a reorder-only setup changes the article order but not these metrics.
+- Any filtering benefit comes from a minimum score, and no single grid value
+  is clean on both sets. The original set's "cancel my order" question
+  (0.4746) is still let through at 0.40. On the holdout set, 0.50 already
+  rejects an answerable question.
+
+### What this does not show
+
+- The thresholds are a **fixed illustrative grid** (0.10–0.50), not tuned
+  values. All 37 questions have been looked at during development, so these
+  numbers **do not validate any threshold**. A production value should be
+  written down in advance and then tested on a new, unseen question set with
+  more refund and cancellation cases.
+- The LLM and its citation check are not run in this evaluation. They are a
+  second safety gate on top of these numbers.
+- Billing units were not returned by the API, so the cost per rerank request
+  is unknown. Each allowed `/chat` request makes at most one rerank call, so
+  the existing rate limiter also limits rerank usage.
+- Adds one request per question: 0.44–1.30 s measured across both experiment
+  runs (median about 0.47–0.59 s), capped by the timeout. The chat and embedding calls still use the SDK's 300 s default
+  timeout; that is outside this change.

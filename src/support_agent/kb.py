@@ -7,6 +7,9 @@ KB_PATH = PROJECT_ROOT / "data" / "kb.json"
 
 REQUIRED_FIELDS = ("id", "title", "text", "url")
 
+# Minimum share of query words an article must contain to be returned.
+MIN_SCORE = 0.30
+
 STOP_WORDS = {
     "what",
     "is",
@@ -114,10 +117,11 @@ def retrieve(query: str, top_k: int = 3) -> list[dict]:
         overlap = query_tokens & article_tokens
         score = len(overlap) / len(query_tokens)
 
-        MIN_SCORE = 0.30
+        # The title says what an article is about; body words are often
+        # incidental (e.g. "email address" in the password article).
+        title_match = bool(query_tokens & tokenize(article["title"]))
 
-
-        if score >= MIN_SCORE:
+        if score >= MIN_SCORE and title_match:
             scored_articles.append({**article, "score": score})
 
     scored_articles.sort(

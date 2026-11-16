@@ -1,0 +1,437 @@
+{
+  "version": 1,
+  "document_format": "title-text-v1",
+  "model": "rerank-v5.0-pro",
+  "kb_sha256": "eea5a4adb186055557b443dd02537754d31735ca7f2c86b787778f19bc278092",
+  "questions_sha256": "5ad3dd7b8b22b2a004ec52566c5573d917054fc764a2d819751a4bd910725b3e",
+  "dataset_sha256": "d22142e31f3cad79fcb47cd02a3f9c42a612e08a36988ea8858ec646cfa309d7",
+  "created_at": "2026-11-16T11:05:53+00:00",
+  "results": {
+    "How do I reset my password?": {
+      "query": "How do I reset my password?",
+      "expected_id": "KB-001",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.8158875
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.013742165
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.006565008
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 1299.2,
+      "completed_at": "2026-11-16T11:05:54+00:00"
+    },
+    "I forgot my password and cannot sign in": {
+      "query": "I forgot my password and cannot sign in",
+      "expected_id": "KB-001",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.6923102
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.019635947
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.007598189
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 572.6,
+      "completed_at": "2026-11-16T11:05:55+00:00"
+    },
+    "I can't log into my account": {
+      "query": "I can't log into my account",
+      "expected_id": "KB-001",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.47196203
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.049476307
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.033596866
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 747.8,
+      "completed_at": "2026-11-16T11:05:55+00:00"
+    },
+    "Can I get a refund?": {
+      "query": "Can I get a refund?",
+      "expected_id": "KB-002",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.736085
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.110637516
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.053988427
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 606.9,
+      "completed_at": "2026-11-16T11:05:56+00:00"
+    },
+    "I want my money back for a purchase": {
+      "query": "I want my money back for a purchase",
+      "expected_id": "KB-002",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.64574385
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.101364665
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.011902364
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 743.5,
+      "completed_at": "2026-11-16T11:05:57+00:00"
+    },
+    "How can I track my shipment?": {
+      "query": "How can I track my shipment?",
+      "expected_id": "KB-003",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.74306184
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.08065114
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.007025484
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 459.8,
+      "completed_at": "2026-11-16T11:05:57+00:00"
+    },
+    "Where is my order?": {
+      "query": "Where is my order?",
+      "expected_id": "KB-003",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.7082052
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.257062
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.025670195
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 590.5,
+      "completed_at": "2026-11-16T11:05:58+00:00"
+    },
+    "What is the weather on Mars?": {
+      "query": "What is the weather on Mars?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.0008142351
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.0007993257
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.00078378076
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 596.2,
+      "completed_at": "2026-11-16T11:05:58+00:00"
+    },
+    "How do I change my email address?": {
+      "query": "How do I change my email address?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.041207846
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.0067135543
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.006145264
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 446.3,
+      "completed_at": "2026-11-16T11:05:59+00:00"
+    },
+    "My package has not arrived": {
+      "query": "My package has not arrived",
+      "expected_id": "KB-003",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.42319703
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.14960234
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.010474254
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 723.8,
+      "completed_at": "2026-11-16T11:06:00+00:00"
+    },
+    "Where do I enter my order number for a refund?": {
+      "query": "Where do I enter my order number for a refund?",
+      "expected_id": "KB-002",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.6900687
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.07182993
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.0067029167
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 594.8,
+      "completed_at": "2026-11-16T11:06:00+00:00"
+    },
+    "How do I update my email?": {
+      "query": "How do I update my email?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.063203946
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.0076061073
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.007252069
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 443.5,
+      "completed_at": "2026-11-16T11:06:01+00:00"
+    },
+    "How do I delete my account?": {
+      "query": "How do I delete my account?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.08997915
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.02362162
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.012251392
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 600.2,
+      "completed_at": "2026-11-16T11:06:01+00:00"
+    },
+    "How do I change my phone number?": {
+      "query": "How do I change my phone number?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.02187312
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.007010567
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.004526663
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 453.3,
+      "completed_at": "2026-11-16T11:06:02+00:00"
+    },
+    "How do I change my shipping address?": {
+      "query": "How do I change my shipping address?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.049319535
+        },
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.028153235
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.0086664315
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 440.6,
+      "completed_at": "2026-11-16T11:06:02+00:00"
+    },
+    "Can I cancel my order?": {
+      "query": "Can I cancel my order?",
+      "expected_id": null,
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.4745523
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.12424549
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.013361464
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 446.6,
+      "completed_at": "2026-11-16T11:06:03+00:00"
+    },
+    "How do I check refund eligibility?": {
+      "query": "How do I check refund eligibility?",
+      "expected_id": "KB-002",
+      "model": "rerank-v5.0-pro",
+      "results": [
+        {
+          "index": 1,
+          "article_id": "KB-002",
+          "relevance_score": 0.6718338
+        },
+        {
+          "index": 2,
+          "article_id": "KB-003",
+          "relevance_score": 0.055854604
+        },
+        {
+          "index": 0,
+          "article_id": "KB-001",
+          "relevance_score": 0.008682386
+        }
+      ],
+      "search_units": null,
+      "latency_ms": 452.6,
+      "completed_at": "2026-11-16T11:06:03+00:00"
+    }
+  },
+  "updated_at": "2026-11-16T11:06:03+00:00"
+}

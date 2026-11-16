@@ -1,4 +1,19 @@
-from support_agent.semantic_kb import retrieve_semantic
+"""Live Cohere tests: they cost API calls, so they only run when asked.
+
+    RUN_LIVE_COHERE_TESTS=1 python -m pytest tests/test_semantic_kb.py
+"""
+
+import os
+
+import pytest
+
+if os.getenv("RUN_LIVE_COHERE_TESTS") != "1":
+    pytest.skip(
+        "live Cohere tests; set RUN_LIVE_COHERE_TESTS=1 to run",
+        allow_module_level=True,
+    )
+
+from support_agent.semantic_kb import retrieve_semantic  # noqa: E402
 
 
 def test_password_query():

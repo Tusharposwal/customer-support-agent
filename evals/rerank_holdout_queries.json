@@ -1,0 +1,82 @@
+[
+  {
+    "query": "I don't remember my password, what should I do?",
+    "expected_id": "KB-001"
+  },
+  {
+    "query": "Where do I find the Forgot password option?",
+    "expected_id": "KB-001"
+  },
+  {
+    "query": "I keep typing the wrong password and can't get in",
+    "expected_id": "KB-001"
+  },
+  {
+    "query": "Which email do the password reset instructions get sent to?",
+    "expected_id": "KB-001"
+  },
+  {
+    "query": "How long do I have to ask for my money back?",
+    "expected_id": "KB-002"
+  },
+  {
+    "query": "I bought this six weeks ago, can I still get a refund?",
+    "expected_id": "KB-002"
+  },
+  {
+    "query": "What details should I include when I contact you about a refund?",
+    "expected_id": "KB-002"
+  },
+  {
+    "query": "How can I see the delivery status of something I bought?",
+    "expected_id": "KB-003"
+  },
+  {
+    "query": "Where can I check where my parcel is right now?",
+    "expected_id": "KB-003"
+  },
+  {
+    "query": "Is there a way to follow my delivery online?",
+    "expected_id": "KB-003"
+  },
+  {
+    "query": "I want to cancel an order I placed this morning",
+    "expected_id": null
+  },
+  {
+    "query": "Will my refund go back to my card or come as store credit?",
+    "expected_id": null
+  },
+  {
+    "query": "How many days does it take for a refund to reach my bank account?",
+    "expected_id": null
+  },
+  {
+    "query": "How do I switch the email on my account to a new one?",
+    "expected_id": null
+  },
+  {
+    "query": "I got a new mobile number, how do I update it on my profile?",
+    "expected_id": null
+  },
+  {
+    "query": "I moved house, can you send my order to my new address instead?",
+    "expected_id": null
+  },
+  {
+    "query": "Please close my account permanently",
+    "expected_id": null
+  },
+  {
+    "query": "How do I turn on two-factor authentication?",
+    "expected_id": null
+  },
+  {
+    "query": "Can I change my username?",
+    "expected_id": null
+  },
+  {
+    "query": "What's a good recipe for banana bread?",
+    "expected_id": null
+  }
+]

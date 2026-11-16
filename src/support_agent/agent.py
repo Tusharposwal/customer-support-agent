@@ -12,6 +12,7 @@ from functools import lru_cache
 from dotenv import load_dotenv
 
 from support_agent.answer import HANDOFF_MESSAGE, SupportAnswer, generate_answer
+from support_agent.rerank import RerankConfig, config_from_env, rerank_articles
 
 logger = logging.getLogger(__name__)
 
@@ -52,18 +53,22 @@ def answer_question(
     retriever=None,
     client=None,
     generator=generate_answer,
+    reranker=rerank_articles,
+    rerank_config: RerankConfig | None = None,
 ) -> SupportAnswer:
     """Answer a customer question from the knowledge base, or hand off to a human.
 
-    `retriever`, `client` and `generator` default to the real components and can
-    be replaced with fakes in tests. The chat model comes from COHERE_CHAT_MODEL
-    (read inside `generate_answer`).
+    `retriever`, `client`, `generator` and `reranker` default to the real
+    components and can be replaced with fakes in tests. The chat model comes
+    from COHERE_CHAT_MODEL (read inside `generate_answer`). Reranking is off
+    unless `rerank_config` (default: COHERE_RERANK_* settings) enables it.
     """
     if not isinstance(question, str) or not question.strip():
         return _handoff("empty_question")
 
     try:
-        client = client or _default_client()
+        client = client or _default_client()  # Also loads .env before settings are read.
+        rerank_config = rerank_config or config_from_env()
     except Exception as error:
         logger.error("Support agent is not configured: %s", type(error).__name__)
         return _handoff("configuration_error")
@@ -76,6 +81,26 @@ def answer_question(
 
     if not articles:
         return _handoff("no_articles")
+
+    if rerank_config.enabled:
+        try:
+            reranked = reranker(question, articles, client, rerank_config)
+        except Exception as error:
+            # Fail open: an outage is not evidence that the question is unsupported.
+            # The citation check in generate_answer still applies to these articles.
+            logger.warning("Rerank failed, using hybrid order: %s", type(error).__name__)
+        else:
+            if reranked:
+                articles = reranked
+            elif rerank_config.min_score is None:
+                logger.warning("Rerank returned no articles without a minimum score; using hybrid order")
+            else:
+                # Reranking succeeded and judged every article below the minimum score.
+                logger.info(
+                    "Rerank minimum score %.4f removed all %d articles (%s)",
+                    rerank_config.min_score, len(articles), ", ".join(a["id"] for a in articles),
+                )
+                return _handoff("below_rerank_threshold")
 
     try:
         return generator(question, articles, client)

@@ -39,5 +39,33 @@
   {
     "query": "My package has not arrived",
     "expected_id": "KB-003"
+  },
+  {
+    "query": "Where do I enter my order number for a refund?",
+    "expected_id": "KB-002"
+  },
+  {
+    "query": "How do I update my email?",
+    "expected_id": null
+  },
+  {
+    "query": "How do I delete my account?",
+    "expected_id": null
+  },
+  {
+    "query": "How do I change my phone number?",
+    "expected_id": null
+  },
+  {
+    "query": "How do I change my shipping address?",
+    "expected_id": null
+  },
+  {
+    "query": "Can I cancel my order?",
+    "expected_id": null
+  },
+  {
+    "query": "How do I check refund eligibility?",
+    "expected_id": "KB-002"
   }
 ]

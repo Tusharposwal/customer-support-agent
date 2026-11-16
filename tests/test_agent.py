@@ -94,6 +94,18 @@ def reset_default_client():
     agent._default_client.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def rerank_settings_unset(monkeypatch):
+    """These tests cover the default (reranking off) flow; see test_agent_rerank.py."""
+    for name in (
+        "COHERE_RERANK_ENABLED",
+        "COHERE_RERANK_MODEL",
+        "COHERE_RERANK_MIN_SCORE",
+        "COHERE_RERANK_TIMEOUT_SECONDS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 def assert_handoff(result, reason):
     assert result.escalate is True
     assert result.reason == reason
