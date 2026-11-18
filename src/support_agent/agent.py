@@ -7,12 +7,13 @@ Usage:
 import logging
 import os
 import sys
+from collections.abc import Mapping
 from functools import lru_cache
 
 from dotenv import load_dotenv
 
 from support_agent.answer import HANDOFF_MESSAGE, SupportAnswer, generate_answer
-from support_agent.cohere_calls import chat_timeout, describe_error, embed_timeout
+from support_agent.cohere_calls import chat_timeout, close_client, describe_error, embed_timeout
 from support_agent.rerank import RerankConfig, config_from_env, rerank_articles
 
 logger = logging.getLogger(__name__)
@@ -98,17 +99,38 @@ def _hybrid_retrieve(question: str) -> list[dict]:
     return retrieve_hybrid(question)
 
 
+API_KEY_ENV = "COHERE_API_KEY"
+
+
+def api_key_from_env(environ: Mapping[str, str] | None = None) -> str:
+    """Return the Cohere API key, or raise ConfigurationError if it is missing
+    or blank. The key itself never appears in the error."""
+    environ = os.environ if environ is None else environ
+    api_key = (environ.get(API_KEY_ENV) or "").strip()
+    if not api_key:
+        raise ConfigurationError(f"{API_KEY_ENV} is not set")
+    return api_key
+
+
 @lru_cache(maxsize=1)
 def _default_client():
     """Create the Cohere client on first use and reuse it afterwards."""
     load_dotenv()
-    api_key = os.getenv("COHERE_API_KEY")
-    if not api_key:
-        raise ConfigurationError("COHERE_API_KEY is not set")
+    api_key = api_key_from_env()
 
     import cohere
 
     return cohere.ClientV2(api_key=api_key)
+
+
+def close_default_client() -> None:
+    """Close the cached chat client, if one was created, so the next
+    `_default_client()` call makes a new one. Errors are raised to the caller."""
+    if _default_client.cache_info().currsize == 0:
+        return
+    client = _default_client()  # The cached client; nothing new is created.
+    _default_client.cache_clear()
+    close_client(client)
 
 
 def answer_question(

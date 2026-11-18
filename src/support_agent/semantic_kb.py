@@ -1,19 +1,27 @@
-import os
-
 import cohere
 from dotenv import load_dotenv
 
-from support_agent.cohere_calls import CohereCallError, call_with_retries, embed_timeout
+# agent doesn't import this module at load time (only inside a function), so
+# importing from it here creates no import cycle.
+from support_agent.agent import api_key_from_env
+from support_agent.cohere_calls import CohereCallError, call_with_retries, close_client, embed_timeout
 from support_agent.kb import load_articles
 
-load_dotenv()
+load_dotenv()  # Local .env for development; real environment variables (e.g. on Render) win.
 
-API_KEY = os.getenv("COHERE_API_KEY")
-if not API_KEY:
-    raise RuntimeError("COHERE_API_KEY is missing from .env")
+# The same key rule as the chat client and startup validation: set, not blank,
+# surrounding whitespace removed. Raises ConfigurationError (a RuntimeError)
+# naming the setting otherwise, never its value.
+API_KEY = api_key_from_env()
 
 client = cohere.ClientV2(api_key=API_KEY)
 MODEL = "embed-v4.0"
+
+
+def close() -> None:
+    """Close the embedding client's connection pool (at server shutdown).
+    The module can't embed afterwards; a server process shuts down only once."""
+    close_client(client)
 
 
 def _embed(texts: list[str], input_type: str) -> list[list[float]]:

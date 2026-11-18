@@ -60,6 +60,18 @@ class CohereCallError(RuntimeError):
         self.attempts = attempts
 
 
+def close_client(client) -> None:
+    """Close a Cohere client's HTTP connection pool.
+
+    Uses the SDK's own context-manager exit (cohere.ClientV2 supports `with`),
+    which closes the httpx client it created. Objects without it (test fakes)
+    are left alone. Any error is raised to the caller.
+    """
+    exit_method = getattr(client, "__exit__", None)
+    if exit_method is not None:
+        exit_method(None, None, None)
+
+
 def describe_error(error: BaseException) -> str:
     """A log-safe name for an error: our category, or just the exception type."""
     return f"{error.category} ({error.operation})" if isinstance(error, CohereCallError) else type(error).__name__
@@ -70,7 +82,8 @@ def describe_error(error: BaseException) -> str:
 
 def timeout_from_env(name: str, default: float, environ: Mapping[str, str] | None = None) -> float:
     """Read a timeout in seconds. Blank or unset means `default`; anything that
-    is not a number above 0 and at most MAX_TIMEOUT_SECONDS raises ValueError."""
+    is not a number above 0 and at most MAX_TIMEOUT_SECONDS raises ValueError.
+    The message names the setting but never repeats its value."""
     environ = os.environ if environ is None else environ
     raw = (environ.get(name) or "").strip()
     if not raw:
@@ -78,9 +91,9 @@ def timeout_from_env(name: str, default: float, environ: Mapping[str, str] | Non
     try:
         value = float(raw)
     except ValueError:
-        raise ValueError(f"{name} must be a number of seconds, got {raw!r}") from None
+        raise ValueError(f"{name} must be a number of seconds") from None
     if not math.isfinite(value) or not 0 < value <= MAX_TIMEOUT_SECONDS:
-        raise ValueError(f"{name} must be above 0 and at most {MAX_TIMEOUT_SECONDS:g}, got {raw!r}")
+        raise ValueError(f"{name} must be above 0 and at most {MAX_TIMEOUT_SECONDS:g}")
     return value
 
 

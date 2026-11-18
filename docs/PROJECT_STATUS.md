@@ -40,7 +40,7 @@ The sequence may change as implementation requirements become clearer.
 
 - Operating system: Windows
 - Editor: VS Code
-- Python: 3.10.11
+- Python: 3.12.16 (upgraded from 3.10.11 in V2 Phase 4, Milestone 4)
 - Git: 2.50.1
 - Virtual environment: `.venv`
 - Application source: `src/support_agent/`

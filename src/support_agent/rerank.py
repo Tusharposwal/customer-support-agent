@@ -58,22 +58,23 @@ def _parse_bool(name: str, raw: str | None) -> bool:
         return True
     if raw.lower() in _FALSE:
         return False
-    raise ValueError(f"{name} must be true or false, got {raw!r}")
+    raise ValueError(f"{name} must be true or false")
 
 
 def _parse_float(name: str, raw: str) -> float:
     try:
         value = float(raw)
     except ValueError:
-        raise ValueError(f"{name} must be a number, got {raw!r}") from None
+        raise ValueError(f"{name} must be a number") from None
     if not math.isfinite(value):
-        raise ValueError(f"{name} must be a finite number, got {raw!r}")
+        raise ValueError(f"{name} must be a finite number")
     return value
 
 
 def config_from_env(environ: Mapping[str, str] | None = None) -> RerankConfig:
     """Read the rerank settings. Raises ValueError for an invalid value, so a
-    typo can never silently switch reranking off (or on)."""
+    typo can never silently switch reranking off (or on). Error messages name
+    the setting but never repeat its value."""
     environ = os.environ if environ is None else environ
 
     enabled = _parse_bool(ENABLED_ENV, _raw(environ, ENABLED_ENV))
@@ -84,14 +85,14 @@ def config_from_env(environ: Mapping[str, str] | None = None) -> RerankConfig:
     if raw_min is not None:
         min_score = _parse_float(MIN_SCORE_ENV, raw_min)
         if not 0.0 <= min_score <= 1.0:
-            raise ValueError(f"{MIN_SCORE_ENV} must be between 0 and 1, got {raw_min!r}")
+            raise ValueError(f"{MIN_SCORE_ENV} must be between 0 and 1")
 
     timeout = DEFAULT_TIMEOUT_SECONDS
     raw_timeout = _raw(environ, TIMEOUT_ENV)
     if raw_timeout is not None:
         timeout = _parse_float(TIMEOUT_ENV, raw_timeout)
         if timeout <= 0:
-            raise ValueError(f"{TIMEOUT_ENV} must be greater than 0, got {raw_timeout!r}")
+            raise ValueError(f"{TIMEOUT_ENV} must be greater than 0")
 
     return RerankConfig(enabled=enabled, model=model, min_score=min_score, timeout_seconds=timeout)
 

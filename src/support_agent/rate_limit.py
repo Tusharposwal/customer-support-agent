@@ -14,6 +14,7 @@ import os
 import threading
 import time
 from collections import deque
+from collections.abc import Mapping
 
 MINUTE = 60
 DAY = 24 * 60 * 60
@@ -58,8 +59,9 @@ def _seconds_until(moment: float, now: float) -> int:
     return max(1, int(moment - now + 0.999))  # Round up, at least 1 second.
 
 
-def _positive_int_env(name: str, default: int) -> int:
-    raw = os.getenv(name)
+def _positive_int_env(name: str, default: int, environ: Mapping[str, str] | None = None) -> int:
+    environ = os.environ if environ is None else environ
+    raw = environ.get(name)
     if raw is None or raw.strip() == "":
         return default
     try:
@@ -67,13 +69,15 @@ def _positive_int_env(name: str, default: int) -> int:
     except ValueError:
         value = 0
     if value < 1:
-        raise ValueError(f"{name} must be a positive whole number, got {raw!r}")
+        # The value itself is not repeated: error messages never echo settings.
+        raise ValueError(f"{name} must be a positive whole number")
     return value
 
 
-def limiter_from_env() -> RateLimiter:
-    """Build the limiter from CHAT_RATE_LIMIT_PER_MINUTE / CHAT_RATE_LIMIT_PER_DAY."""
+def limiter_from_env(environ: Mapping[str, str] | None = None) -> RateLimiter:
+    """Build the limiter from CHAT_RATE_LIMIT_PER_MINUTE / CHAT_RATE_LIMIT_PER_DAY
+    (read from `environ`, default os.environ). Raises ValueError if invalid."""
     return RateLimiter(
-        per_minute=_positive_int_env("CHAT_RATE_LIMIT_PER_MINUTE", DEFAULT_PER_MINUTE),
-        per_day=_positive_int_env("CHAT_RATE_LIMIT_PER_DAY", DEFAULT_PER_DAY),
+        per_minute=_positive_int_env("CHAT_RATE_LIMIT_PER_MINUTE", DEFAULT_PER_MINUTE, environ),
+        per_day=_positive_int_env("CHAT_RATE_LIMIT_PER_DAY", DEFAULT_PER_DAY, environ),
     )

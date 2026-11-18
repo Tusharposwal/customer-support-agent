@@ -238,6 +238,7 @@ is unchanged: the API calls `answer_question()` and nothing else.
 | Method | Path | What it does |
 | --- | --- | --- |
 | GET | `/health` | Returns `{"status": "ok"}`. Hosting platforms use it to check the server is alive, so it never calls Cohere (no cost, no dependency on Cohere being up). |
+| GET | `/ready` | `200` once startup has completed (validation passed; since Milestone 5 also the rate limiter and Cohere clients created), else `503`. See "Startup validation and readiness" and "Startup and shutdown lifecycle" near the end of these notes. |
 | POST | `/chat` | Body `{"question": "..."}`. Returns `answer`, `sources`, `escalate`, `reason`. |
 
 FastAPI also generates interactive docs at `/docs` from the code.
@@ -280,8 +281,10 @@ is checked too and appears in `/docs`.
 - **The API calls `agent.answer_question` through the module** (`agent.answer_question(...)`),
   so tests can swap in a fake agent with `monkeypatch`. API tests use
   FastAPI's `TestClient` and make no Cohere calls.
-- **No Cohere work at startup.** Importing the API doesn't create a client.
-  The first `/chat` request does, so `/health` works even before the key is set.
+- **No Cohere work at import.** Importing the API doesn't create a client.
+  (At the time the first `/chat` request did. Since V2 Phase 4 the server
+  refuses to start without the key, and since Milestone 5 it creates the
+  clients at startup; see "Startup and shutdown lifecycle".)
 - **`HOST`/`PORT` environment variables** in `python -m support_agent.api`.
   Most hosting platforms tell the app which port to use through `PORT`.
 
@@ -416,7 +419,7 @@ running with no protection.
 - `src/support_agent/static/app.js`: 429 message for customers.
 - `tests/test_rate_limit.py`: limiter unit tests with a fake clock.
 - `tests/test_api.py`: endpoint-level limit tests.
-- `.python-version`: pins Python 3.10.11 for Render.
+- `.python-version`: pins the Python version for Render and CI (3.10.11 at the time; 3.12.16 since V2 Phase 4, Milestone 4).
 
 ## Keyword title-match rule (V2 Phase 2: RAG improvement)
 
@@ -1335,3 +1338,536 @@ to `tests/conftest.py` so both files share it.
   The next question is consistent.
 - The final check doesn't look for the "insufficient evidence" marker itself.
   `generate_answer` does; a custom generator would have to as well.
+
+## Startup validation and readiness (V2 Phase 4, Milestone 1)
+
+**The problem.** `/health` always said "ok", and it was Render's health check.
+A deploy with no API key, a typo in a setting or a broken `kb.json` started
+normally and replaced the working version; then every question was handed off
+(`configuration_error` or `retrieval_error`) while monitoring stayed green.
+
+### How it works
+
+```
+uvicorn starts --> import api.py --> lifespan startup
+                                      startup.check_startup()
+                                        load_dotenv()      (local .env; real env vars win)
+                                        find_problems()    (every check, all problems collected)
+                                      problems? --yes--> raise StartupError
+                                                         Uvicorn: "Application startup failed. Exiting." (exit code 3)
+                                         no
+                                      app.state.ready = True --> serve requests
+                                      (shutdown) app.state.ready = False
+```
+
+`find_problems()` (`src/support_agent/startup.py`) **reuses the validators the
+running app already uses**, so every rule exists in one place:
+
+| What | Checked by (existing code) |
+| --- | --- |
+| `COHERE_API_KEY` present and not blank | `agent.api_key_from_env` (now also used by `_default_client`) |
+| `COHERE_RERANK_ENABLED / _MODEL / _MIN_SCORE / _TIMEOUT_SECONDS` | `rerank.config_from_env` |
+| `COHERE_CHAT_TIMEOUT_SECONDS`, `COHERE_EMBED_TIMEOUT_SECONDS` | `cohere_calls.chat_timeout` / `embed_timeout` |
+| `CHAT_RATE_LIMIT_PER_MINUTE / _PER_DAY` | `rate_limit.limiter_from_env` |
+| `LOG_LEVEL` (added in Milestone 2) | `log_config.log_level_from_env` |
+| `data/kb.json` exists, is valid JSON, every article valid | `kb.load_articles` |
+| ...and has at least one article | new rule: an empty KB can never answer anything |
+
+So the same functions can check a given set of settings (tests pass a plain
+dict), `limiter_from_env` gained the optional `environ` argument that the
+rerank and timeout readers already had.
+
+**The `/chat` rate limiter is created at startup, after `.env` is loaded.**
+It used to be created when `api.py` was imported, which is before anything
+loads `.env`, so a *valid* `CHAT_RATE_LIMIT_*` in a local `.env` was silently
+ignored while an *invalid* one (now validated after loading `.env`) stopped
+startup. Now the lifespan runs `check_startup()` (one `load_dotenv()`, then
+validation) and only then `chat_limiter = limiter_from_env()`, so the limiter
+uses exactly the settings that were validated. On Render nothing changes:
+real environment variables are already set, and python-dotenv never
+overrides them. Until startup has run, `chat_limiter` is `None` and `/chat`
+returns `503` without calling the agent, so Cohere can never be called
+without a limit.
+
+### `/health` versus `/ready`
+
+| | `/health` (liveness) | `/ready` (readiness) |
+| --- | --- | --- |
+| Question it answers | Is the process running? | Has startup completed? (Validation passed; since Milestone 5 also the limiter and Cohere clients created.) |
+| Response | always `200 {"status":"ok"}` | `200 {"status":"ready"}` or `503 {"status":"not_ready"}` |
+| Work per request | none | reads one flag (`app.state.ready`) |
+
+`/ready` returns 503 before startup finishes, after shutdown begins, and when
+the app is served without its lifecycle (for example a `TestClient` used
+without `with`).
+
+### Design decisions
+
+- **Fail startup, don't just report "not ready".** A misconfigured process
+  that stays up can still receive traffic. Exiting makes the deploy fail on
+  Render, so the previous working version keeps serving. `/ready` is the
+  second line of defence for the time before startup completes.
+- **Validate once, at startup.** Environment variables can't change while a
+  process runs, and `kb.json` only changes with a deploy, so re-checking on
+  every probe would only add work. A probe is instant and never reads files.
+- **No Cohere call, no Cohere import.** (The validation step. Since
+  Milestone 5 the clients are created right after it, still without any
+  request; see "Startup and shutdown lifecycle".) The check confirms the key is *set*,
+  not *valid*. Calling Cohere from a readiness probe would cost money on every
+  probe, and a Cohere outage would mark the service not ready (and could make
+  the platform restart it), which doesn't help: the app already hands off
+  safely when Cohere fails.
+- **Report every problem at once,** so one failed deploy shows the whole list.
+- **No values in errors.** Messages name the setting and the rule
+  ("`COHERE_RERANK_ENABLED must be true or false`"), never its value. The
+  existing validators used to add `got '<value>'`; that was removed, because a
+  key pasted into the wrong variable would have been printed in the deploy
+  log. Unexpected exceptions are reported by type only, and `StartupError` is
+  raised outside any `except` block, so no chained traceback repeats an
+  earlier message.
+- **`.env` is loaded first** (as the running app already does), so local
+  development behaves like production. In tests, an autouse fixture in
+  `tests/conftest.py` replaces `startup.load_dotenv`, so the real `.env` is
+  never read.
+
+### Tests (`tests/test_startup.py`, 69)
+
+Valid configuration (defaults, non-defaults, blank values), missing or blank
+key, each invalid rerank, timeout and rate-limit setting, missing, malformed
+and empty knowledge base, the shipped `kb.json`, all problems reported
+together, no setting value or key in any error or log, the app lifecycle
+(ready after startup, startup failing on bad settings or a broken KB, not
+ready before startup and after shutdown), probes doing no work, a minimal
+`/ready` body, and no Cohere import or network access during startup or
+probes (`cohere` made unimportable, host-name lookup and connections made to
+fail). Rate limits from a temporary `.env` file (parsed by the real
+python-dotenv, never the project's `.env`): valid values applied and enforced
+on `/chat`, blank means default, real environment variables win, invalid
+values fail startup without showing the value, importing `api.py` doesn't read
+them, and `/chat` returns 503 before startup.
+
+### Remaining limitations
+
+- **The key's validity isn't checked.** A wrong or revoked key passes startup;
+  questions then hand off (`llm_error` / `retrieval_error`). Checking it needs
+  a Cohere call, which this design avoids on purpose.
+- **Model names aren't checked** (`COHERE_CHAT_MODEL`, `COHERE_RERANK_MODEL`)
+  for the same reason.
+- **Readiness isn't re-evaluated** after startup. A Cohere outage or an
+  exhausted quota doesn't show in `/ready` (by design, see above).
+- **Render's health check path is still `/health`** until it is changed in
+  the dashboard.
+
+## Logging and request-level observability (V2 Phase 4, Milestone 2)
+
+### What the audit found
+
+- **App logs weren't configured under Uvicorn.** Uvicorn's logging setup only
+  covers its own `uvicorn.*` loggers. `support_agent.*` records went up to the
+  root logger, which has no handler, so Python's "last resort" handler printed
+  WARNING and ERROR as bare messages (no time, level or source) and **dropped
+  INFO** (for example the `below_rerank_threshold` line).
+- **No per-request outcome.** The access log says `POST /chat 200` for both
+  answers and hand-offs. Expected hand-offs logged nothing; there was no
+  request ID and no duration.
+- **No way to connect the lines of one request** (agent, retry, rerank).
+- **Sensitive data was already handled well** (verified, kept): questions,
+  answers and provider error text are never logged; errors are logged as an
+  exception type or a category such as `rate_limit (chat)`. The one
+  provider-supplied value, an unknown `finish_reason`, is logged as a
+  truncated `repr`. Uvicorn's access log includes the client IP address; that
+  is Uvicorn's standard behaviour and was left unchanged.
+
+### Configuration (`src/support_agent/log_config.py`)
+
+- `LOG_LEVEL` (default `INFO`, any case) sets the level of the
+  `support_agent` logger. It is validated with the other settings at startup
+  (`startup.find_problems`); anything else stops startup with
+  `LOG_LEVEL must be one of DEBUG, INFO, WARNING, ERROR, CRITICAL`, without
+  the value.
+- At startup, after validation, `configure_logging()` gives the
+  `support_agent` logger **one** stderr handler with the format
+  `%(asctime)s %(levelname)s %(name)s [%(request_id)s] %(message)s`.
+- **Only our logger is configured.** The root logger and Uvicorn's loggers are
+  untouched, so Uvicorn's lines look exactly as before. `propagate = False`
+  means that if a host or tool ever adds a root handler, our lines still
+  appear once, not twice. Calling it again (a restart in the same process)
+  replaces the handler instead of adding a second one.
+- **Why INFO by default:** the per-request outcome line is INFO, and it's the
+  main thing to read in Render's logs. `WARNING` keeps only problems.
+
+### Request lifecycle
+
+```
+request ─► RequestContextMiddleware (plain ASGI middleware, every HTTP request)
+             request_id = valid client X-Request-ID, or uuid4().hex
+             request_id_var.set(request_id)     (contextvar: visible to every log line,
+                                                 including the worker thread running /chat)
+             start = clock()
+           ─► FastAPI ─► /chat endpoint
+                 records its outcome in the request scope:
+                   503 not_ready · 429 rate_limited (+ limit) ·
+                   200 reason/escalate/sources · 500 server_error (+ error type)
+           ◄─ response: X-Request-ID header added
+           finally (path /chat only): ONE outcome line, level by status:
+             INFO (2xx, 4xx) · WARNING (429, 503) · ERROR (other 5xx)
+```
+
+- **Client-supplied IDs** are used only if they are 1–64 characters of
+  letters, digits, `.`, `_`, `:` or `-`. Anything else (spaces, quotes, `<`,
+  non-ASCII, longer) is replaced, so a header can't inject text or line breaks
+  into the logs.
+- **Rejected before the agent runs:** a 422 (validation) or 405 never reaches
+  the endpoint, so the middleware derives the reason from the status
+  (`invalid_request`, `method_not_allowed`). 429 and 503 are recorded by the
+  endpoint.
+- **Exactly once:** only the middleware writes the outcome. The old separate
+  "rate limit reached" warning and "unexpected error in /chat" error were
+  folded into the outcome line (`limit=minute`, `error=RuntimeError`).
+- **Unexpected exceptions:** the endpoint already turns agent failures into a
+  safe 500. If something outside that `try` fails (the limiter, response
+  validation), the middleware sends the same safe hand-off body with
+  `X-Request-ID` and logs one ERROR outcome with only the exception type. If
+  the response had already started, it can't be replaced; the exception is
+  re-raised to Uvicorn after logging.
+- **Safe values only:** `reason` is logged only if it looks like an identifier
+  (`[a-z0-9_]{1,40}`), otherwise as `other`. The error is a type name only.
+  The question, answer, source titles and URLs are never read by the logging
+  code.
+
+### Example lines
+
+```
+2026-11-17 23:36:06,572 INFO support_agent.api [-] Startup checks passed; ready for requests
+2026-11-17 10:15:02,123 INFO support_agent.api [3f2a9c...] chat_request status=200 escalate=false reason=answered sources=2 duration_ms=2310.4
+2026-11-17 10:15:04,010 WARNING support_agent.agent [b71e40...] Retrieval failed: rate_limit (embed)
+2026-11-17 10:15:04,011 INFO support_agent.api [b71e40...] chat_request status=200 escalate=true reason=retrieval_error sources=0 duration_ms=1102.7
+2026-11-17 10:15:09,870 WARNING support_agent.api [8b01d2...] chat_request status=429 escalate=- reason=rate_limited sources=0 duration_ms=0.4 limit=minute
+2026-11-17 10:16:00,001 ERROR support_agent.api [c0ffee...] chat_request status=500 escalate=true reason=server_error sources=0 duration_ms=12.0 error=RuntimeError
+```
+
+### Tests (`tests/test_logging.py`, 59)
+
+`LOG_LEVEL` parsing and its value-free error (also through startup), the line
+format, the level actually applied, one handler and untouched root and Uvicorn
+loggers, request IDs generated, unique, returned and used in logs, valid and
+unsafe client IDs, the header never duplicated, other endpoints getting an ID
+but no outcome line, outcomes for answers, nine hand-off reasons, 422, 405,
+429 (minute and day), 503, agent exceptions and exceptions outside the agent,
+exact duration with a fake clock, an odd `reason` logged as `other`, agent
+log lines carrying the request ID from the worker thread, and the question,
+answer, URL, key and provider message never appearing in the logs (checked
+both through `caplog` and in the formatted output of a real startup).
+
+`tests/conftest.py` restores the `support_agent` logger after each test,
+because startup sets `propagate = False`, which would otherwise hide later
+tests' records from `caplog`.
+
+### Remaining limitations
+
+- **Plain `key=value` text, not JSON.** Easy to read and search in Render's
+  log view; a log platform that parses JSON would need a JSON formatter.
+- **No metrics.** Answer rate, hand-off rate and latency percentiles have to
+  be worked out from the lines; there is no dashboard or alerting.
+- **The request ID isn't shown to customers** or included in the response
+  body; it is only in the `X-Request-ID` header.
+- **Uvicorn's access line and our outcome line are separate** (the access
+  line has no request ID). They appear next to each other.
+- **The `python -m support_agent.agent` CLI keeps its own simple
+  `logging.basicConfig(level=WARNING)` setup.**
+
+## Reproducible builds and CI (V2 Phase 4, Milestone 3)
+
+### What the audit found
+
+- `pyproject.toml` had only ranges (`cohere>=7.3,<8`, `fastapi>=0.115,<1`,
+  `uvicorn>=0.30,<1`, `python-dotenv>=1.2`) and there was no lock file. Every
+  Render build installed whatever was newest in those ranges *that day*, and
+  nothing tested that combination first. The retry code depends on SDK
+  details (`status_code`, `request_options`, httpx error classes), so a minor
+  release could change behaviour quietly.
+- No CI: `.github/` didn't exist. Tests only ran when someone ran them locally.
+- The local `.venv` had 42 packages. Following each package's own metadata
+  from the project showed that **all 42 are actually needed** (none left over
+  from experiments), with no conflicts, and that Linux needs the same set minus
+  `colorama` (required by pytest and click only on Windows). Those exact
+  versions pass the full suite and `pip check`, and every one has a Linux
+  CPython 3.10 wheel (checked with `pip download --platform manylinux...`), so
+  Render and CI never compile anything.
+
+### Approach: a constraints file
+
+`constraints.txt` lists `name==version` for every package (direct and
+indirect, runtime and test). It is passed with `-c`:
+
+```
+Render:  pip install -e . -c constraints.txt
+Dev/CI:  pip install -e ".[dev]" -c constraints.txt
+```
+
+A **constraints** file (not a requirements file) only fixes the version of a
+package *if* something asks for it. So one file serves every case: Render
+installs only the runtime packages, dev and CI also get pytest, and
+`colorama` is installed only on Windows.
+
+Why not the alternatives:
+
+- **`pip freeze > requirements.txt`**: forces every listed package to be
+  installed, including test tools on Render and `colorama` on Linux, and
+  loses the "what do we actually depend on" view that `pyproject.toml` gives.
+- **pip-tools / uv / Poetry lock files**: would add a new tool to the
+  project and to Render's build. The constraints file needs only pip.
+- **Exact pins in `pyproject.toml`**: would pin only direct dependencies; the
+  ~35 indirect ones would still float.
+
+`pyproject.toml` keeps its ranges (what the code is compatible with);
+`constraints.txt` says exactly what is installed. `tests/test_dependencies.py`
+keeps them in step:
+
+- every line is an exact `==` pin, listed once;
+- every direct dependency is pinned, inside its `pyproject.toml` range;
+- every installed dependency of the project (followed through package
+  metadata) is pinned, so adding a dependency without pinning it fails;
+- installed versions equal the pins (in CI this proves the pinned set was
+  installed); the README and the workflow both use `-c constraints.txt`.
+
+### CI (`.github/workflows/tests.yml`)
+
+- Runs on every push and pull request; a newer run on the same branch
+  cancels the older one.
+- `ubuntu-24.04`, not `ubuntu-latest`: Python 3.10.11 builds are published for
+  Ubuntu 24.04 but not 26.04, which `ubuntu-latest` will move to.
+- Python from `.python-version` (3.10.11, the same as Render's
+  `PYTHON_VERSION`).
+- Installs with the same constraints file, prints `pip check` and the
+  installed versions, then runs `python -m pytest -q` (pytest finds `src` and
+  `tests` through `pytest.ini`).
+- **No secrets:** read-only token (`permissions: contents: read`, checkout
+  without saved credentials), no Cohere key, `RUN_LIVE_COHERE_TESTS=0`. The
+  offline tests need neither: the app's tests use fakes, and startup tests
+  never read `.env`.
+
+### Validation done
+
+- Clean install in a fresh Python 3.10.11 venv, from a copy of only the files
+  Git would ship (no `.env`), with `COHERE_API_KEY` unset: installed versions
+  identical to `constraints.txt` and to the existing `.venv` (no upgrades),
+  `pip check` clean, full suite passing, `data/kb.json` found through the
+  editable install.
+- A runtime-only install (Render's command) started with Uvicorn and a fake
+  key: `/ready` returned 200. Startup makes no Cohere call.
+
+### Remaining limitations
+
+- **Render still uses the old build command** until it is changed in the
+  dashboard to `pip install -e . -c constraints.txt`.
+- **No hashes.** Pins fix versions, not file contents; `--require-hashes`
+  would also protect against a tampered package but needs hashes for every
+  platform's wheel.
+- **Build tools and pip aren't pinned.** `setuptools>=64` (used to build the
+  editable install) comes from PyPI at install time, and pip itself is
+  whatever the Python install includes. Neither changes the installed app
+  packages.
+- **CI runs on Linux only;** local development is on Windows (the same
+  versions, apart from `colorama`).
+- **Updating versions is manual:** edit `constraints.txt`, reinstall, run the
+  tests. Nothing proposes updates automatically.
+- **The action versions (`checkout@v6`, `setup-python@v6`) are major-version
+  tags, not commit SHAs.** setup-python v7 removed end-of-life Python versions
+  and 3.10 reached end-of-life in October 2026, so v6 is used until the
+  Python upgrade in Milestone 4.
+
+## Python 3.12 runtime (V2 Phase 4, Milestone 4)
+
+**Why:** Python 3.10 reached end-of-life on 2026-10-01 (no more security
+fixes). 3.12 receives security fixes until October 2028. The project now
+targets **3.12.16**, the newest 3.12 release (October 2026).
+
+### Compatibility audit
+
+- **Dependencies:** every pinned version publishes CPython 3.12 wheels for
+  Linux and Windows (checked by downloading all 41 Linux and 42 Windows wheels
+  for `cp312`), and none declares a `Requires-Python` that excludes 3.12. No
+  version had to change.
+- **Platform-specific pins:** on 3.12, `tomli` and `exceptiongroup` are no
+  longer installed (pytest, anyio and huggingface_hub request them only below
+  Python 3.11). They stay in `constraints.txt`, which only applies a pin when
+  a package is requested, so a 3.10 environment still installs the same set.
+  `colorama` is still Windows-only.
+- **Code and tests:** nothing relies on 3.10 (no `distutils`, `imp`,
+  `asyncore`, removed `unittest` aliases or similar). The one version branch,
+  `tomllib` with a `tomli` fallback in `tests/test_dependencies.py`, works on
+  both.
+- **CI:** `actions/setup-python@v6` installs 3.12.16 from `.python-version`.
+- **Render:** the `PYTHON_VERSION` environment variable takes precedence over
+  `.python-version`, so Render keeps running 3.10.11 until the dashboard
+  variable is changed to `3.12.16`.
+
+### How it was tested
+
+No Python 3.12 was installed on the development machine (python.org's last
+3.12 Windows installer is 3.12.10; later 3.12 releases are source-only). The
+check used Astral's self-contained `python-build-standalone` CPython 3.12.16
+build (release `20261110`), unpacked into a temporary folder after its
+SHA-256 matched the publisher's `SHA256SUMS` and GitHub's recorded digest.
+The system Python and the project's `.venv` were not touched.
+
+In a fresh 3.12.16 venv, from a copy of only the files Git would ship (no
+`.env`) and with no Cohere key:
+
+- `pip install -e ".[dev]" -c constraints.txt`: 40 packages, every one at its
+  pinned version; `pip check` clean.
+- All modules import; importing the API still doesn't load `cohere`.
+- `data/kb.json` is found through the editable install (3 articles), and
+  startup validation reports no problems.
+- Full offline suite: 640 passed, 1 skipped (the live Cohere test), with
+  Python warnings shown: none reported.
+- Render-style install (`pip install -e . -c constraints.txt`, 36 packages,
+  no pytest) started under Uvicorn with a fake key: `/health` and `/ready`
+  returned 200, the outcome log line was formatted correctly, and an invalid
+  `LOG_LEVEL` stopped startup with the usual value-free error.
+
+### Remaining limitations
+
+- **Render still uses 3.10.11** until `PYTHON_VERSION` is changed to `3.12.16`
+  in the dashboard. Change it together with the build command from
+  Milestone 3, then check the deploy log and `/ready`.
+- **The local `.venv` is still Python 3.10.11.** It keeps working (the
+  constraints still cover 3.10), but development should move to a 3.12 venv.
+- **Local testing used a Windows build;** CI is the first run on Linux 3.12.16.
+- **`requires-python` in `pyproject.toml` is still `>=3.10`.** Raising it to
+  `>=3.12` would stop 3.10 installs, so it is left for when 3.10 is no longer
+  needed.
+- `actions/setup-python` stays at `@v6`. v7 now also supports this Python
+  version, but changing it isn't needed for this milestone.
+
+## Startup and shutdown lifecycle (V2 Phase 4, Milestone 5)
+
+### What the audit found
+
+| Question | Before this milestone |
+| --- | --- |
+| When is the chat client created? | On the first `/chat`: `agent._default_client()` (cached with `lru_cache`) loads `.env`, checks the key, and creates `cohere.ClientV2`. |
+| When is the embedding client created? | Also on the first `/chat`: `_hybrid_retrieve` imports `semantic_kb`, which creates its own `ClientV2` at import. |
+| When is the knowledge base embedded? | On the first question that reaches semantic retrieval (one embed request), then cached until the articles change. |
+| Do imports do expensive work? | Importing the API doesn't load the Cohere SDK. `import cohere` itself is cheap (2–21 ms); the SDK loads its modules when `ClientV2` is first used. |
+| What needs closing? | Each `ClientV2` owns one `httpx.Client` (a connection pool). The SDK closes it when a client is used with `with`. Its default thread pool is shared by the whole SDK, isn't used by our calls, and isn't ours to close. |
+| Startup failing halfway? | Validation ran first and nothing was created yet, so there was nothing to clean up. |
+| In-flight requests at shutdown? | Uvicorn stops accepting connections, waits for running requests to finish (no time limit unless `--timeout-graceful-shutdown` is set), then runs the app's shutdown. Nothing was closed: the OS freed the connections at exit. |
+
+### Measured cost
+
+Fresh processes, real SDK, fake key, nothing sent (checked with an audit hook):
+
+| | Python 3.10.11 | Python 3.12.16 |
+| --- | --- | --- |
+| Before: startup to ready | 25–142 ms | 35–55 ms |
+| Before: client setup paid by the first question | 554–1023 ms (5.6 s once, on a cold disk) | 869–1302 ms |
+| After: startup to ready | 599–637 ms | 919–1096 ms |
+| After: client setup paid by the first question | 0 ms | 0 ms |
+
+The first question still embeds the knowledge base (one Cohere request): that
+is real API work, so it stays lazy.
+
+### Design
+
+**Startup** (`lifespan` in `api.py`):
+
+```
+validate settings (no SDK) -> configure logging -> rate limiter
+  -> create chat client (agent._default_client) and embedding client (import semantic_kb)
+  -> ready = True
+```
+
+- Creating the clients sends nothing; it only moves about a second of SDK
+  loading from the first customer's question to startup, before `/ready`
+  turns true and before Uvicorn opens the port. On Render's free plan, a
+  request that wakes the service waits for startup either way, so that
+  request is no slower; every other first request after a deploy or restart
+  is faster.
+- **The knowledge base is not embedded at startup.** That would be a Cohere
+  request on every boot and wake-up (cost, and a dependency on Cohere being up
+  just to start).
+- A client that can't be created now fails startup (a broken SDK install
+  shows up in the deploy, not on a customer's question).
+
+**Shutdown:**
+
+```
+ready = False -> wait (up to 10 s) for /chat requests still inside the agent
+  -> close the chat client (and clear its cache) -> close the embedding client
+```
+
+- `close_client()` (`cohere_calls.py`) uses the SDK's own `with` support
+  (`__exit__`), which closes the client's httpx pool. No new resource
+  abstraction: two existing clients, two close calls.
+- **Not while in use:** `/chat` counts requests inside the agent. Normally
+  Uvicorn has already waited for them, so the count is 0. If Uvicorn gave up
+  on a request (only with `--timeout-graceful-shutdown`, whose worker thread
+  keeps running), shutdown waits up to 10 seconds and otherwise leaves the
+  clients open with a warning, rather than breaking that request. The OS
+  frees the connections when the process exits.
+- **Partial startup failure:** client creation runs inside the same
+  `try/finally` as shutdown, so anything already created is closed.
+- **Errors aren't hidden:** each close is wrapped; a failure is logged as a
+  warning with the exception type only, and the original startup or server
+  error is what propagates.
+- **Readiness** is set to false before anything is closed.
+
+### Tests (`tests/test_lifecycle.py`, 15)
+
+Startup order (validation, logging, limiter, clients, then ready), clients
+created at startup with no request and no knowledge-base embedding, no
+clients when validation fails, the first real `/chat` reusing the startup
+clients, both clients closed after shutdown with the cache cleared, readiness
+false while closing, partial startup failure closing the chat client and
+re-raising the original error, a failing close neither hiding the startup
+error nor leaking its message, a failing close at shutdown logged not raised,
+shutdown waiting for a running chat before closing, clients left open (with a
+warning) when a chat never finishes, the in-progress count returning to zero
+after an error, closing without startup, and `close_client` against the real
+installed SDK (its httpx pool ends up closed; no request sent).
+
+Test changes: startup tests now use the fake Cohere SDK from `conftest.py`
+(the `semantic_kb` fixture), because startup creates clients by design.
+"Startup does not import cohere" became "validation does not import cohere".
+`conftest.py` also stops `agent.load_dotenv` reading `.env` and clears the
+cached chat client between tests; `FakeEmbedClient` records closing.
+
+Also checked: a real `uvicorn.Server` with the real SDK and a fake key, shut
+down the way SIGTERM does it: `/ready` 200 before, then not ready, both httpx
+pools closed and the chat-client cache cleared. Full suite on Python 3.10.11
+and 3.12.16: 655 passed, 1 skipped.
+
+### Remaining limitations
+
+- **Startup is about 0.6–1.1 s slower** (the SDK loading moved there).
+- **The first question still waits for the knowledge-base embedding**
+  (one Cohere request), by design.
+- **`semantic_kb` can't embed after it is closed.** A server process shuts
+  down once, so this only matters if the same process starts the app again
+  (tests use fakes; `uvicorn --reload` starts a new process).
+- **Hard kills skip cleanup.** If the platform kills the process (for example
+  after its shutdown grace period), nothing is closed; the OS frees the
+  connections.
+- **The 10-second wait is fixed,** not a setting.
+
+### Follow-up fixes (Phase 4 final audit)
+
+- **One key rule for every client.** `semantic_kb` used to read
+  `COHERE_API_KEY` itself, untrimmed, while startup and the chat client used
+  `agent.api_key_from_env()` (trimmed). A key with a pasted newline would
+  have passed startup and worked for chat, but broken every embedding call
+  while `/ready` said 200. Now `semantic_kb` uses `api_key_from_env()` too, so
+  both clients get the same normalized key, and a missing key raises the same
+  `ConfigurationError("COHERE_API_KEY is not set")` (no longer "missing from
+  .env": on Render the key comes from the environment). `agent` imports
+  `semantic_kb` only inside a function, so this creates no import cycle.
+- **Tests synchronised with events, not sleeps.** Two shutdown tests assumed a
+  worker thread had started after `time.sleep(0.05)`, which can fail on a slow
+  CI machine. Now the worker sets a `threading.Event` once it is inside the
+  request, and the "waits" test learns that shutdown has started waiting
+  through a stand-in for the api module's `asyncio.sleep`. Every wait has a
+  5-second limit, so a broken test fails instead of hanging.
+- **Readiness wording** now says what `/ready` actually means since
+  Milestone 5: startup has completed (validated, limiter and clients created).
