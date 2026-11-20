@@ -216,7 +216,7 @@ def test_generate_refuses_to_overwrite(tmp_path, monkeypatch):
 @pytest.mark.skipif(not cal.FIXTURE_PATH.exists(), reason="semantic fixture not generated")
 def test_saved_fixture_matches_current_kb_and_dataset(block_cohere):
     cases = cal.load_cases()
-    fixture = cal.load_fixture(load_articles(), cases)
+    fixture = cal.load_fixture(load_articles(cal.HISTORICAL_KB_PATH), cases)
 
     assert len(fixture["documents"]) == 3
     assert len(fixture["questions"]) == len(cases) == 17

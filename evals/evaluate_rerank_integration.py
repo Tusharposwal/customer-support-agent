@@ -330,6 +330,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--embed-holdout", action="store_true",
                         help="create holdout question embeddings with 1 Cohere embed call")
     args = parser.parse_args(argv)
+
+    # Saved fixtures belong to the frozen v1 knowledge base; keyword retrieval
+    # inside the real hybrid retriever must read the same articles.
+    with cal.historical_kb():
+        return _run(args)
+
+
+def _run(args) -> int:
     articles = load_articles()
 
     try:

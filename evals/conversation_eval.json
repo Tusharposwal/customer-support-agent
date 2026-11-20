@@ -1,0 +1,988 @@
+[
+  {
+    "id": "C-001",
+    "label": "follow_up",
+    "category": "returns_refunds",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How can I return my order?"
+      },
+      {
+        "role": "assistant",
+        "content": "You can return most items within 30 days of purchase. Start a return from Orders, then Return items."
+      }
+    ],
+    "message": "What if I bought it 35 days ago?",
+    "reference_query": "Can I return an order 35 days after purchase?",
+    "expected_ids": [
+      "KB-002",
+      "KB-015"
+    ],
+    "required_terms": [
+      [
+        "35"
+      ],
+      [
+        "return",
+        "refund"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "pronoun",
+      "number"
+    ]
+  },
+  {
+    "id": "C-002",
+    "label": "follow_up",
+    "category": "returns_refunds",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I return a jacket?"
+      },
+      {
+        "role": "assistant",
+        "content": "You can return most items within 30 days of purchase. Start a return from Orders, then Return items."
+      }
+    ],
+    "message": "And how long until I get my money back?",
+    "reference_query": "How long does a refund take after I return a jacket?",
+    "expected_ids": [
+      "KB-017"
+    ],
+    "required_terms": [
+      [
+        "refund",
+        "money back"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "ellipsis"
+    ]
+  },
+  {
+    "id": "C-003",
+    "label": "follow_up",
+    "category": "returns_refunds",
+    "history": [
+      {
+        "role": "customer",
+        "content": "Do I have to pay to send a return back?"
+      },
+      {
+        "role": "assistant",
+        "content": "Return shipping costs $5.95, deducted from your refund, unless the item arrived damaged or wrong."
+      }
+    ],
+    "message": "Even if it's a gift card?",
+    "reference_query": "Can I return a gift card?",
+    "expected_ids": [
+      "KB-016"
+    ],
+    "required_terms": [
+      [
+        "gift card"
+      ],
+      [
+        "return"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "ellipsis"
+    ]
+  },
+  {
+    "id": "C-004",
+    "label": "follow_up",
+    "category": "password_login",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I reset my password?"
+      },
+      {
+        "role": "assistant",
+        "content": "Select Forgot password on the sign-in page and follow the link we email you."
+      }
+    ],
+    "message": "How long does that link last?",
+    "reference_query": "How long is the password reset link valid?",
+    "expected_ids": [
+      "KB-001"
+    ],
+    "required_terms": [
+      [
+        "reset",
+        "password"
+      ],
+      [
+        "link"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "pronoun"
+    ]
+  },
+  {
+    "id": "C-005",
+    "label": "follow_up",
+    "category": "password_login",
+    "history": [
+      {
+        "role": "customer",
+        "content": "I forgot my password"
+      },
+      {
+        "role": "assistant",
+        "content": "Select Forgot password on the sign-in page and follow the link we email you."
+      }
+    ],
+    "message": "The email never arrived",
+    "reference_query": "The password reset email never arrived",
+    "expected_ids": [
+      "KB-011"
+    ],
+    "required_terms": [
+      [
+        "reset",
+        "password"
+      ],
+      [
+        "email"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "ellipsis",
+      "informal"
+    ]
+  },
+  {
+    "id": "C-006",
+    "label": "follow_up",
+    "category": "account",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I change my email address?"
+      },
+      {
+        "role": "assistant",
+        "content": "Go to Profile, choose Change email and confirm the new address from the link we send."
+      }
+    ],
+    "message": "How long do I have to click it?",
+    "reference_query": "How long is the email address change confirmation link valid?",
+    "expected_ids": [
+      "KB-004"
+    ],
+    "required_terms": [
+      [
+        "email"
+      ],
+      [
+        "confirm",
+        "link"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "pronoun"
+    ]
+  },
+  {
+    "id": "C-007",
+    "label": "follow_up",
+    "category": "account",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I delete my account?"
+      },
+      {
+        "role": "assistant",
+        "content": "Go to Settings, then Privacy, and choose Delete account."
+      }
+    ],
+    "message": "Can I undo that later?",
+    "reference_query": "Can I restore my account after deleting it?",
+    "expected_ids": [
+      "KB-006"
+    ],
+    "required_terms": [
+      [
+        "delet"
+      ],
+      [
+        "restore",
+        "undo",
+        "recover",
+        "back"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "pronoun"
+    ]
+  },
+  {
+    "id": "C-008",
+    "label": "follow_up",
+    "category": "orders_shipping",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How much is express shipping?"
+      },
+      {
+        "role": "assistant",
+        "content": "Express shipping costs $12.99 and is free for Plus members."
+      }
+    ],
+    "message": "Do you ship that to Canada?",
+    "reference_query": "Do you offer express shipping to Canada?",
+    "expected_ids": [
+      "KB-013"
+    ],
+    "required_terms": [
+      [
+        "canada"
+      ],
+      [
+        "ship"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "pronoun"
+    ]
+  },
+  {
+    "id": "C-009",
+    "label": "follow_up",
+    "category": "orders_shipping",
+    "history": [
+      {
+        "role": "customer",
+        "content": "I need to change the delivery address on my order"
+      },
+      {
+        "role": "assistant",
+        "content": "You can change the address from Orders while the order is still processing."
+      }
+    ],
+    "message": "What if it already shipped?",
+    "reference_query": "Can I change the delivery address after my order has shipped?",
+    "expected_ids": [
+      "KB-014"
+    ],
+    "required_terms": [
+      [
+        "address"
+      ],
+      [
+        "shipped"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "ellipsis"
+    ]
+  },
+  {
+    "id": "C-010",
+    "label": "follow_up",
+    "category": "orders_shipping",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I track my order?"
+      },
+      {
+        "role": "assistant",
+        "content": "Open Orders and select Track package, or use the link in your shipping email."
+      }
+    ],
+    "message": "I checked out as a guest though",
+    "reference_query": "How do I track an order I placed as a guest?",
+    "expected_ids": [
+      "KB-003"
+    ],
+    "required_terms": [
+      [
+        "track"
+      ],
+      [
+        "guest"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "ellipsis"
+    ]
+  },
+  {
+    "id": "C-011",
+    "label": "follow_up",
+    "category": "payments_billing",
+    "history": [
+      {
+        "role": "customer",
+        "content": "What payment methods do you accept?"
+      },
+      {
+        "role": "assistant",
+        "content": "We accept major credit and debit cards, PayPal and gift cards."
+      }
+    ],
+    "message": "What about Bitcoin?",
+    "reference_query": "Can I pay with Bitcoin?",
+    "expected_ids": [
+      "KB-018"
+    ],
+    "required_terms": [
+      [
+        "bitcoin",
+        "crypto"
+      ],
+      [
+        "pay"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "ellipsis"
+    ]
+  },
+  {
+    "id": "C-012",
+    "label": "follow_up",
+    "category": "payments_billing",
+    "history": [
+      {
+        "role": "customer",
+        "content": "My card was declined at checkout"
+      },
+      {
+        "role": "assistant",
+        "content": "Check the card details and billing address, or contact your bank."
+      }
+    ],
+    "message": "But I can see the charge on my statement",
+    "reference_query": "Why is there a charge on my statement when my card was declined?",
+    "expected_ids": [
+      "KB-019",
+      "KB-020"
+    ],
+    "required_terms": [
+      [
+        "declined"
+      ],
+      [
+        "charge"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "ellipsis"
+    ]
+  },
+  {
+    "id": "C-013",
+    "label": "follow_up",
+    "category": "payments_billing",
+    "history": [
+      {
+        "role": "customer",
+        "content": "Can I use two promo codes?"
+      },
+      {
+        "role": "assistant",
+        "content": "Only one promo code can be used per order."
+      }
+    ],
+    "message": "Can I combine one with a gift card?",
+    "reference_query": "Can I use a promo code together with a gift card?",
+    "expected_ids": [
+      "KB-022",
+      "KB-023"
+    ],
+    "required_terms": [
+      [
+        "promo"
+      ],
+      [
+        "gift card"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "pronoun"
+    ]
+  },
+  {
+    "id": "C-014",
+    "label": "follow_up",
+    "category": "cancellations",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I cancel my order?"
+      },
+      {
+        "role": "assistant",
+        "content": "Choose Cancel order in Orders while the order is still processing."
+      }
+    ],
+    "message": "And if it's too late for that?",
+    "reference_query": "What can I do if it is too late to cancel my order?",
+    "expected_ids": [
+      "KB-024"
+    ],
+    "required_terms": [
+      [
+        "cancel"
+      ],
+      [
+        "order"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "pronoun"
+    ]
+  },
+  {
+    "id": "C-015",
+    "label": "follow_up",
+    "category": "cancellations",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I cancel my Plus membership?"
+      },
+      {
+        "role": "assistant",
+        "content": "Go to Account, then Plus, and choose Cancel membership."
+      }
+    ],
+    "message": "Will I get my $49 back?",
+    "reference_query": "Can I get a refund of the $49 Plus membership fee after cancelling?",
+    "expected_ids": [
+      "KB-025"
+    ],
+    "required_terms": [
+      [
+        "49"
+      ],
+      [
+        "plus",
+        "membership"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "number"
+    ]
+  },
+  {
+    "id": "C-016",
+    "label": "follow_up",
+    "category": "delivery_problems",
+    "history": [
+      {
+        "role": "customer",
+        "content": "My package is late"
+      },
+      {
+        "role": "assistant",
+        "content": "If tracking hasn't updated, wait a few business days; then we can open an investigation."
+      }
+    ],
+    "message": "It's been 4 business days now",
+    "reference_query": "My package is 4 business days late; what should I do?",
+    "expected_ids": [
+      "KB-026"
+    ],
+    "required_terms": [
+      [
+        "4"
+      ],
+      [
+        "late",
+        "package"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "number"
+    ]
+  },
+  {
+    "id": "C-017",
+    "label": "follow_up",
+    "category": "delivery_problems",
+    "history": [
+      {
+        "role": "customer",
+        "content": "My lamp arrived broken"
+      },
+      {
+        "role": "assistant",
+        "content": "Report damaged items within 7 days of delivery with a photo, from Orders."
+      }
+    ],
+    "message": "What if it's been 10 days?",
+    "reference_query": "Can I report a damaged item 10 days after delivery?",
+    "expected_ids": [
+      "KB-028"
+    ],
+    "required_terms": [
+      [
+        "10"
+      ],
+      [
+        "damaged",
+        "broken"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "number",
+      "pronoun"
+    ]
+  },
+  {
+    "id": "C-018",
+    "label": "follow_up",
+    "category": "product_info",
+    "history": [
+      {
+        "role": "customer",
+        "content": "Do your headphones have a warranty?"
+      },
+      {
+        "role": "assistant",
+        "content": "Most products have a 1-year warranty against defects."
+      }
+    ],
+    "message": "Does it cover water damage?",
+    "reference_query": "Does the headphone warranty cover water damage?",
+    "expected_ids": [
+      "KB-029"
+    ],
+    "required_terms": [
+      [
+        "warranty"
+      ],
+      [
+        "water"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "pronoun"
+    ]
+  },
+  {
+    "id": "C-019",
+    "label": "follow_up",
+    "category": "technical",
+    "history": [
+      {
+        "role": "customer",
+        "content": "The app keeps crashing"
+      },
+      {
+        "role": "assistant",
+        "content": "Update the app, restart your phone, or reinstall it."
+      }
+    ],
+    "message": "I'm on Android 10",
+    "reference_query": "Does the app work on Android 10?",
+    "expected_ids": [
+      "KB-032"
+    ],
+    "required_terms": [
+      [
+        "android"
+      ],
+      [
+        "10"
+      ],
+      [
+        "app"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "ellipsis",
+      "number"
+    ]
+  },
+  {
+    "id": "C-020",
+    "label": "follow_up",
+    "category": "technical",
+    "history": [
+      {
+        "role": "customer",
+        "content": "Checkout shows an error"
+      },
+      {
+        "role": "assistant",
+        "content": "Wait a moment before trying again so you aren't charged twice, then retry."
+      }
+    ],
+    "message": "Will I be charged twice?",
+    "reference_query": "Can a checkout error charge me twice?",
+    "expected_ids": [
+      "KB-033",
+      "KB-020"
+    ],
+    "required_terms": [
+      [
+        "charge"
+      ],
+      [
+        "twice",
+        "duplicate"
+      ]
+    ],
+    "forbidden_terms": [],
+    "tags": [
+      "ellipsis"
+    ]
+  },
+  {
+    "id": "C-021",
+    "label": "standalone",
+    "category": "orders_shipping",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I reset my password?"
+      },
+      {
+        "role": "assistant",
+        "content": "Select Forgot password on the sign-in page."
+      }
+    ],
+    "message": "How much does express shipping cost?",
+    "reference_query": "How much does express shipping cost?",
+    "expected_ids": [
+      "KB-012"
+    ],
+    "required_terms": [
+      [
+        "express"
+      ],
+      [
+        "shipping"
+      ]
+    ],
+    "forbidden_terms": [
+      "password"
+    ],
+    "tags": [
+      "topic_change"
+    ]
+  },
+  {
+    "id": "C-022",
+    "label": "standalone",
+    "category": "payments_billing",
+    "history": [
+      {
+        "role": "customer",
+        "content": "Can I return a gift card?"
+      },
+      {
+        "role": "assistant",
+        "content": "Gift cards cannot be returned."
+      }
+    ],
+    "message": "Where can I download an invoice for my order?",
+    "reference_query": "Where can I download an invoice for my order?",
+    "expected_ids": [
+      "KB-021"
+    ],
+    "required_terms": [
+      [
+        "invoice"
+      ]
+    ],
+    "forbidden_terms": [
+      "gift card"
+    ],
+    "tags": []
+  },
+  {
+    "id": "C-023",
+    "label": "standalone",
+    "category": "password_login",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I track my order?"
+      },
+      {
+        "role": "assistant",
+        "content": "Open Orders and select Track package."
+      }
+    ],
+    "message": "My account is locked after too many sign-in attempts",
+    "reference_query": "My account is locked after too many sign-in attempts",
+    "expected_ids": [
+      "KB-010"
+    ],
+    "required_terms": [
+      [
+        "locked"
+      ]
+    ],
+    "forbidden_terms": [
+      "track"
+    ],
+    "tags": []
+  },
+  {
+    "id": "C-024",
+    "label": "standalone",
+    "category": "account",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How long do refunds take?"
+      },
+      {
+        "role": "assistant",
+        "content": "Refunds are issued within 5 business days of receiving your return."
+      }
+    ],
+    "message": "How do I set up two-factor authentication?",
+    "reference_query": "How do I set up two-factor authentication?",
+    "expected_ids": [
+      "KB-007"
+    ],
+    "required_terms": [
+      [
+        "two-factor"
+      ]
+    ],
+    "forbidden_terms": [
+      "refund"
+    ],
+    "tags": []
+  },
+  {
+    "id": "C-025",
+    "label": "topic_switch",
+    "category": "product_info",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I return a jacket?"
+      },
+      {
+        "role": "assistant",
+        "content": "You can return most items within 30 days of purchase. Start a return from Orders, then Return items."
+      }
+    ],
+    "message": "Different question: the price dropped after I bought it, can I get the difference?",
+    "reference_query": "Can I get the difference if the price drops after I buy something?",
+    "expected_ids": [
+      "KB-031"
+    ],
+    "required_terms": [
+      [
+        "price"
+      ]
+    ],
+    "forbidden_terms": [
+      "return"
+    ],
+    "tags": [
+      "topic_change"
+    ]
+  },
+  {
+    "id": "C-026",
+    "label": "topic_switch",
+    "category": "product_info",
+    "history": [
+      {
+        "role": "customer",
+        "content": "Is express shipping free for Plus?"
+      },
+      {
+        "role": "assistant",
+        "content": "Yes, express shipping is free for Plus members."
+      }
+    ],
+    "message": "Also, when will the blue jacket be back in stock?",
+    "reference_query": "When will the blue jacket be back in stock?",
+    "expected_ids": [
+      "KB-030"
+    ],
+    "required_terms": [
+      [
+        "stock"
+      ]
+    ],
+    "forbidden_terms": [
+      "express",
+      "plus"
+    ],
+    "tags": [
+      "topic_change"
+    ]
+  },
+  {
+    "id": "C-027",
+    "label": "topic_switch",
+    "category": "technical",
+    "history": [
+      {
+        "role": "customer",
+        "content": "Can I cancel my order?"
+      },
+      {
+        "role": "assistant",
+        "content": "Choose Cancel order in Orders while the order is still processing."
+      }
+    ],
+    "message": "Never mind. I'm not getting any emails from you at all",
+    "reference_query": "I am not receiving any order or shipping emails",
+    "expected_ids": [
+      "KB-034"
+    ],
+    "required_terms": [
+      [
+        "email"
+      ]
+    ],
+    "forbidden_terms": [
+      "cancel"
+    ],
+    "tags": [
+      "topic_change",
+      "informal"
+    ]
+  },
+  {
+    "id": "C-028",
+    "label": "needs_clarification",
+    "category": "none",
+    "history": [
+      {
+        "role": "customer",
+        "content": "Hi"
+      },
+      {
+        "role": "assistant",
+        "content": "Hello! What can I help you with?"
+      }
+    ],
+    "message": "Can I do that too?",
+    "tags": [
+      "pronoun"
+    ],
+    "note": "'That' refers to nothing in the conversation."
+  },
+  {
+    "id": "C-029",
+    "label": "needs_clarification",
+    "category": "none",
+    "history": [
+      {
+        "role": "customer",
+        "content": "How do I change my email address?"
+      },
+      {
+        "role": "assistant",
+        "content": "Go to Profile and choose Change email."
+      },
+      {
+        "role": "customer",
+        "content": "And how do I change my phone number?"
+      },
+      {
+        "role": "assistant",
+        "content": "Go to Profile and choose Update phone number."
+      }
+    ],
+    "message": "How long is it valid for?",
+    "tags": [
+      "pronoun"
+    ],
+    "note": "'It' could be the email confirmation link (24 hours) or the phone code (10 minutes)."
+  },
+  {
+    "id": "C-030",
+    "label": "needs_clarification",
+    "category": "none",
+    "history": [
+      {
+        "role": "customer",
+        "content": "I want to cancel"
+      },
+      {
+        "role": "assistant",
+        "content": "Do you want to cancel an order or your Plus membership?"
+      }
+    ],
+    "message": "the other one",
+    "tags": [
+      "short"
+    ],
+    "note": "'The other one' doesn't identify which option the customer means."
+  },
+  {
+    "id": "C-031",
+    "label": "needs_clarification",
+    "category": "none",
+    "history": [
+      {
+        "role": "customer",
+        "content": "Thanks for the help earlier"
+      },
+      {
+        "role": "assistant",
+        "content": "You're welcome! Is there anything else?"
+      }
+    ],
+    "message": "What about the second one?",
+    "tags": [
+      "pronoun"
+    ],
+    "note": "No list of options exists in the conversation."
+  },
+  {
+    "id": "C-032",
+    "label": "needs_clarification",
+    "category": "none",
+    "history": [
+      {
+        "role": "customer",
+        "content": "My order and my refund are both late"
+      },
+      {
+        "role": "assistant",
+        "content": "I can help with both. Which would you like to start with?"
+      }
+    ],
+    "message": "How long should I wait for it?",
+    "tags": [
+      "pronoun",
+      "multi_intent"
+    ],
+    "note": "'It' could be the late order or the late refund."
+  }
+]

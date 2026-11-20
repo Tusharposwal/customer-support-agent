@@ -46,7 +46,7 @@ def fake_agent(monkeypatch):
             self.result = GROUNDED
             self.error = None
 
-        def __call__(self, question):
+        def __call__(self, question, **kwargs):
             self.questions.append(question)
             if self.error:
                 raise self.error
@@ -80,6 +80,7 @@ def test_successful_grounded_answer(fake_agent):
         ],
         "escalate": False,
         "reason": "answered",
+        "conversation_id": response.json()["conversation_id"],
     }
     assert fake_agent.questions == ["How do I reset my password?"]
 
@@ -101,6 +102,7 @@ def test_human_escalation(fake_agent):
         "sources": [],
         "escalate": True,
         "reason": "insufficient_evidence",
+        "conversation_id": response.json()["conversation_id"],
     }
 
 
@@ -145,6 +147,7 @@ def test_unexpected_agent_error_is_safe(fake_agent):
         "sources": [],
         "escalate": True,
         "reason": "server_error",
+        "conversation_id": response.json()["conversation_id"],
     }
     assert "secret" not in response.text
     assert "Traceback" not in response.text
@@ -154,7 +157,7 @@ def test_unexpected_agent_error_is_safe(fake_agent):
 def test_response_structure(fake_agent):
     body = client.post("/chat", json={"question": "How do I reset my password?"}).json()
 
-    assert set(body) == {"answer", "sources", "escalate", "reason"}
+    assert set(body) == {"answer", "sources", "escalate", "reason", "conversation_id"}
     assert isinstance(body["answer"], str)
     assert isinstance(body["escalate"], bool)
     assert isinstance(body["reason"], str)
@@ -201,7 +204,36 @@ def test_frontend_posts_json_to_chat_endpoint():
     assert "fetch(CHAT_URL" in script
     assert 'method: "POST"' in script
     assert '"Content-Type": "application/json"' in script
-    assert "JSON.stringify({ question })" in script
+    assert "JSON.stringify(body)" in script
+    assert "{ question, conversation_id: conversationId } : { question }" in script
+
+
+def test_frontend_keeps_the_conversation_id_in_session_storage_only():
+    script = client.get("/static/app.js").text
+
+    assert "sessionStorage" in script
+    assert "localStorage" not in script and "document.cookie" not in script
+    assert "const CONVERSATION_ID = /^[0-9a-f]{32}$/;" in script  # only server-shaped IDs are used
+    assert "CONVERSATIONS_URL + encodeURIComponent(conversationId)" in script
+
+
+def test_frontend_handles_conversation_errors_and_restores_history():
+    script = client.get("/static/app.js").text
+
+    for status in (404, 409, 503):
+        assert f"response.status === {status}" in script
+    assert "restoreConversation();" in script
+    assert "startNewConversation" in script
+
+
+def test_page_has_new_conversation_button_and_updated_greeting():
+    page = client.get("/").text
+
+    assert 'id="new-conversation"' in page and 'type="button"' in page
+    assert 'id="greeting"' in page
+    assert "Ask me about passwords, refunds, or tracking an order." not in page
+    for topic in ("orders and shipping", "returns and refunds", "payments and billing", "cancellations"):
+        assert topic in page
 
 
 def test_frontend_never_uses_innerhtml():

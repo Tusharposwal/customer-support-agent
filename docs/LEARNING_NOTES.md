@@ -1871,3 +1871,314 @@ and 3.12.16: 655 passed, 1 skipped.
   5-second limit, so a broken test fails instead of hanging.
 - **Readiness wording** now says what `/ready` actually means since
   Milestone 5: startup has completed (validated, limiter and clients created).
+
+## Knowledge base v2 and evaluation dataset (Phase 5, Milestone 1)
+
+### Why
+
+Three articles cannot show whether retrieval picks the *right* article among
+similar ones, and 37 questions about three topics cannot show much about
+answer quality. This milestone grows the KB to a realistic size and adds a
+question set that is labelled for **expected behaviour**, not just for an
+article ID.
+
+### The knowledge base (`data/kb.json`)
+
+34 original, fictional articles (the store and its policies are invented):
+
+| Category | Articles |
+| --- | --- |
+| `account` | 5 (email, phone, delete account, two-factor, guest checkout) |
+| `password_login` | 4 (reset, change, locked account, reset email missing) |
+| `orders_shipping` | 4 (tracking, options/costs, destinations, change address) |
+| `returns_refunds` | 4 (eligibility, returning, non-returnable items, refund timing) |
+| `payments_billing` | 6 (methods, declined, charged twice, invoices, promo codes, gift cards) |
+| `cancellations` | 2 (orders, Plus membership) |
+| `delivery_problems` | 3 (late, delivered-not-received, damaged/wrong/missing) |
+| `product_info` | 3 (warranty, restock alerts, price drop) |
+| `technical` | 3 (app/website, checkout errors, missing emails) |
+
+- **Schema.** Same four required fields plus an optional `category`.
+  `load_articles()` already allowed extra fields, and nothing in the app reads
+  `category` (only the evaluation does), so retrieval, the agent and the API
+  are unchanged. Semantic search still embeds only title and text.
+- **KB-001..003 kept their ID, title, URL and original sentences**; new
+  sentences were only appended. Nothing that was true before became untrue.
+- **One policy sheet.** Every number was decided once, then written into each
+  article that mentions it: 30 days *of purchase* for refunds, returns and
+  shipped-order returns; 7 days *of delivery* to report damaged or wrong
+  items; 14 days to report delivered-not-received; Processing lasts about
+  1 hour; pending charges clear in 3-5 business days; order confirmation
+  within 15 minutes; passwords of at least 10 characters. A test
+  (`test_shared_policy_numbers_are_consistent`) fails if these drift apart.
+- **Titles use customer words**, because keyword retrieval only keeps
+  articles that share a word with the title (V2 Phase 2 rule).
+
+### Keeping the historical experiments reproducible
+
+Every saved fixture (semantic embeddings, rerank results, holdout embeddings)
+stores a SHA-256 of the KB it was made from, and the two v1 question sets are
+labelled for three articles ("change my email" is *unsupported* there; it is
+now answerable). Replacing `data/kb.json` would have made those fixtures fail
+their hash check and those labels wrong.
+
+- `evals/fixtures/kb_v1.json` is a **byte-identical copy** of the old KB.
+  A test checks its hash against all four fixtures.
+- `calibrate_semantic.historical_kb()` points `support_agent.kb.KB_PATH` at
+  that copy inside a `with` block. Both `load_articles()` and keyword
+  `retrieve()` read `KB_PATH` when called, so the real hybrid retriever used
+  by the replay also sees v1.
+- The historical scripts (`calibrate_semantic`, `rerank_experiment`,
+  `evaluate_rerank_integration`, `evaluate_retrieval`, `compare_retrieval`)
+  run inside that block. Their offline output is identical to the numbers
+  recorded in the sections above. No fixture or v1 question file changed.
+- `tests/test_kb.py`'s keyword tests and the real-fixture tests also read the
+  v1 copy, so they still test the same behaviour as before.
+
+### The dataset (`evals/support_eval_v2.json`)
+
+77 questions: **51 answerable, 16 unsupported, 10 ambiguous**. None repeats a
+v1 question (checked ignoring case and punctuation).
+
+| Field | Used for | Meaning |
+| --- | --- | --- |
+| `id` | all | `V2-001` ... |
+| `label` | all | `answerable`, `unsupported` or `ambiguous` (expected behaviour) |
+| `category` | all | one of the 9 KB categories, or `none` |
+| `expected_ids` | answerable | articles **needed** to answer (2 for multi-intent questions) |
+| `also_relevant_ids` | answerable | other articles that also contain the answer |
+| `answer_facts` | answerable | key facts; each is a list of acceptable spellings |
+| `related_ids` | unsupported, ambiguous | topical articles that do **not** settle the question |
+| `note` | unsupported, ambiguous | why the label is what it is |
+| `tags` | all | edge-case and scope tags (below) |
+
+- **Unsupported** questions carry exactly one scope tag: `out_of_domain` (3,
+  including one prompt-injection attempt), `not_covered` (5: a support topic
+  with no article, e.g. gift wrapping) or `near_miss` (8: an article covers
+  the topic but not the detail, e.g. customs duties for Canada). A test
+  checks that the KB never mentions those topics, so the labels stay true
+  when articles are edited.
+- **Ambiguous** questions ("Can I cancel?", "My code doesn't work") have
+  several plausible articles with different answers. The right behaviour is
+  to ask or hand off, not to pick one. The agent cannot ask follow-up
+  questions yet, so answered ambiguous questions are listed for manual review
+  instead of being scored automatically.
+- **Edge cases are tags, not a fourth label**, because an edge case still has
+  an expected behaviour: `boundary` (8, e.g. day 31 of a 30-day window),
+  `paraphrase`, `informal`, `typo`, `negation`, `multi_intent`, `short`,
+  `adversarial`.
+- `evaluate_kb_v2.validate_cases()` rejects unknown article IDs, missing or
+  extra fields, duplicate IDs or queries, a multi-intent question with one
+  expected ID, unsupported questions without a scope tag or note, and similar
+  labelling mistakes. `validate_kb()` adds ID format, category, and unique
+  title and URL checks on top of `load_articles()`.
+
+### Metrics (`evals/evaluate_kb_v2.py`)
+
+**Retrieval**: which articles would reach the LLM. Default K = 3, as in
+production. For answerable questions:
+
+- *Expected article @K*: at least one expected article in the top K.
+- *Recall@K*: share of expected articles in the top K (averaged).
+- *Precision@K*: relevant articles in the top K / K. With one relevant
+  article the maximum is 0.33 at K = 3. *Precision of returned* divides by
+  the number of articles actually returned instead.
+- *Top-1* and *MRR@K* count expected or also-relevant articles.
+- Unsupported: share for which **no** article was returned, split by scope.
+
+**Answers**: scored from a recorded run of the real `answer_question()`.
+
+- *Answered* vs *handed off* (a hand-off of an answerable question is a false
+  hand-off).
+- *Valid citations*: every source exists in the KB with the same title and URL.
+- *Supporting article cited*: at least one source is an expected or
+  also-relevant article.
+- *Key facts*: each `answer_facts` group found as whole words (case, dash and
+  apostrophe differences ignored). This is a **proxy**: it misses correct
+  paraphrases and cannot see added wrong claims.
+- *Correct (proxy)*: answered, supporting article cited and all key facts
+  present.
+- Unsupported: abstained vs answered. Ambiguous: handed off vs answered
+  (answered ones are listed for review).
+
+A recorded run stores hashes of the questions and the KB; scoring refuses a
+file made from a different version of either.
+
+### Results so far (keyword retrieval, K = 3, offline)
+
+| Answerable (51) | Value |
+| --- | --- |
+| Top-1 relevant | 31/51 (61%) |
+| Expected article in top 3 | 38/51 (75%) |
+| Recall@3 | 0.745 |
+| Precision@3 / precision of returned | 0.288 / 0.601 |
+| MRR@3 | 0.676 |
+| No article returned | 8/51 |
+
+Unsupported: nothing returned for 11/16 (out-of-domain 3/3, not covered
+2/5, near miss 6/8). Weakest categories: returns/refunds (2/8) and
+orders/shipping (3/7). Typical misses: no stemming ("shipping" vs "Where we
+ship"), synonyms ("send it back" vs "Return an item") and stop-word gaps
+("Where is my order?" now ranks "Where we ship" first). K = 5 gives the
+same hit rate, recall and MRR: the misses are articles keyword retrieval
+does not return at all, not articles ranked 4th or 5th.
+
+**Not measured yet:** semantic and hybrid retrieval (they need embedding
+calls for 34 articles and 77 questions) and every answer metric (it needs a
+recorded run, i.e. chat calls). This milestone makes no claim about answer
+quality. A bigger dataset gives more reliable numbers; it does not make the
+agent better.
+
+### Limitations
+
+- The KB and the questions were written by the same author in the same
+  session, so wording overlap is probably higher than with real customer
+  questions and retrieval numbers are probably optimistic. Article titles
+  were **not** changed after seeing the results above.
+- Labels were checked against the article text by one person; there is no
+  second annotator.
+- On the larger KB, keyword retrieval reorders some v1 questions (e.g. "I
+  forgot my password and cannot sign in" now ranks "Account locked" above
+  "Reset your password"; the right article is still in the top 3). The
+  production path is hybrid, so this matters most when semantic search is
+  weak.
+- The semantic and rerank threshold work was done on v1 and does not
+  transfer to v2 without new measurements.
+
+## Conversations and follow-up questions (Phase 5, Milestone 2)
+
+### What changed
+
+Before this milestone every `/chat` request stood alone: "What if I bought it
+35 days ago?" reached retrieval with nothing to say what "it" was. Now a
+conversation is stored, and a follow-up is rewritten into a standalone
+question **for retrieval only**.
+
+```
+Browser ──POST /chat {question, conversation_id?}──> api.chat
+  1. load the conversation (404 unknown/expired, 409 full, 503 storage down)
+  2. rate limit (429)
+  3. agent.answer_question(question, history=..., trace=...)
+       a. no history  -> no rewrite call (first message: exactly as before)
+          history     -> query_rewrite: one small chat call -> standalone query
+       b. needs_clarification -> fixed "tell me more" reply, stop
+       c. retrieve + rerank with the standalone query
+       d. generate from the articles; the model sees the original message
+          plus the standalone query, never earlier replies
+       e. final gate (_checked_result): citations checked as before
+  4. save question + reply together (one transaction), then respond
+```
+
+### Storage (`conversation_store.py`)
+
+- SQLite from the standard library (no new dependency). Two tables,
+  `conversations` and `messages`; the rewritten query is its own column, so
+  the customer's text is stored unchanged.
+- **Thread safety:** `/chat` runs in worker threads, so each operation opens
+  its own connection and closes it. Writes use `BEGIN IMMEDIATE` and WAL mode;
+  SQLite serialises writers. A test runs 12 threads against one conversation
+  and checks the message limit holds exactly.
+- **Limits:** 40 messages per conversation, checked inside the write
+  transaction. A full conversation is refused (409); nothing is dropped or
+  moved to another conversation.
+- **Retention:** 30 days after the last message. Expired conversations count
+  as missing at once; cleanup (startup, then at most hourly) only deletes
+  conversations idle that long, and every write re-checks expiry in its
+  transaction, so cleanup can't remove one that is in use.
+- **IDs:** 128 random bits (`secrets.token_hex(16)`), always made by the
+  server. A client can't create a conversation with an ID of its choosing
+  (unknown IDs are 404), and anything that isn't 32 lowercase hex characters
+  is rejected (422) before any lookup. The ID is a bearer secret: logs carry
+  a 12-character SHA-256 prefix instead, and a filter on Uvicorn's access log
+  replaces `/conversations/<id>` with `/conversations/<redacted>`.
+
+### Failing safely
+
+- No answer without saving: a new conversation pings the database first; a
+  follow-up reads its history first. Either failing returns 503 before any
+  Cohere call. If the final save fails, the generated answer is **discarded**
+  and the customer gets 503 ("your message was not sent"), so the page never
+  shows a reply the conversation doesn't contain. The cost: an occasional
+  wasted Cohere call.
+- An agent crash is saved as the usual safe hand-off and returned as 500.
+- Startup fails if the database can't be opened, so `/ready` never reports a
+  service that can't save.
+
+### Rewriting (`query_rewrite.py`)
+
+- One Cohere chat call, temperature 0, JSON output, `COHERE_REWRITE_TIMEOUT_SECONDS`
+  (default 8) with the shared retry policy from `cohere_calls`.
+- Input: the last 6 messages, each cut to 500 characters, at most 3,000 in
+  total. This only bounds the prompt; nothing is removed from storage.
+  Assistant replies are labelled "context only, may be wrong".
+- The output is checked: correct JSON shape, at most 300 characters, and **no
+  number the customer never wrote** (stops "30 days" from an assistant reply,
+  or an invented "$49", becoming part of the search). Anything unusable, and
+  any API failure, falls back to the message as written; a rewrite problem is
+  never a reason to refuse an answer.
+- The rewrite is never evidence. The answer model gets the original message
+  plus the rewrite labelled "not a source of facts", and still must cite the
+  retrieved articles.
+
+### The clarification outcome
+
+`needs_clarification` is a new, non-escalated reply with a fixed message and
+no sources. The final gate accepts it **only** when the agent itself produced
+it after the rewriter asked for it (`clarification_allowed=True`), and only
+in exactly that form. A generator returning `reason="needs_clarification"` is
+treated as an error (hand-off), so the new outcome can't be used to get an
+uncited answer past the citation checks.
+
+### Frontend
+
+The ID is kept in `sessionStorage` (one tab, forgotten when it closes). On
+load the page calls `GET /conversations/{id}` and redraws the messages with
+`textContent`. If the conversation is gone (404, e.g. after a Render
+restart) or can't be loaded, the page starts fresh instead of continuing a
+conversation the customer can't see. On 404/409/503 after sending, the
+question is put back in the box because it wasn't saved. A Node-based test
+(`tests/js/app_smoke.js`) runs the real script against a fake DOM that throws
+on any `innerHTML`-style insertion, and checks that restored `<script>` and
+`<img>` text stays text and `javascript:` URLs never become links.
+
+### Evaluation (`evals/conversation_eval.json`, `evaluate_conversations.py`)
+
+32 conversations: 20 follow-ups, 4 standalone questions, 3 topic switches, 5
+that should get a clarification request. Each answerable case has a
+hand-written standalone question, the articles it should find, required terms
+and (for topic switches) terms from the old topic that must not leak in. The
+dataset check runs every reference through the production output check, so a
+guard that rejected good rewrites would fail the tests.
+
+Offline result (keyword retrieval, Expected@3, 27 answerable cases):
+
+| Query used | All | Follow-ups | Standalone | Topic switch |
+| --- | --- | --- | --- | --- |
+| Last message alone | 10/27 (37%) | 4/20 | 4/4 | 2/3 |
+| All customer messages joined | 23/27 (85%) | 17/20 | 3/4 | 3/3 |
+| Hand-written standalone question | 24/27 (89%) | 17/20 | 4/4 | 3/3 |
+
+What this shows: context matters a lot for follow-ups. It does **not** show
+that the rewriter works: the third row is written by hand, an upper bound.
+Simply joining customer messages is almost as good for keyword retrieval on
+this small set, but it hurt a standalone question; semantic retrieval and
+the rewriter itself are not measured (both need live Cohere calls:
+`--record-rewrites`, then `--rewrites`).
+
+### Remaining limitations
+
+- **Render free plan:** the database is on the service's temporary disk, so
+  all conversations disappear on every redeploy, restart and spin-down.
+  The page handles this (starts a new conversation), but history is lost.
+- The rewrite prompt and `response_format` JSON schema have not been tried
+  against the live API (no live calls in this milestone). If the API rejected
+  the request, every follow-up would fall back to the message as written:
+  safe, but no better than before.
+- Whoever has a conversation ID can read the conversation; there are no
+  accounts. The ID is in the URL of `GET /conversations/{id}`, so a proxy in
+  front of the app (including Render's own request logs, if any) could record
+  it; only this app's and Uvicorn's logs are redacted.
+- One extra chat call per follow-up (up to 8 s more in the worst case); first
+  messages cost the same as before.
+- The dataset was written by one person, together with the KB; the numbers
+  are probably optimistic and small.

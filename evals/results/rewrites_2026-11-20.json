@@ -1,0 +1,233 @@
+{
+  "version": 2,
+  "recorded_on": "2026-11-20",
+  "rewrite_model": "command-a-03-2025",
+  "max_retries": 0,
+  "dataset_sha256": "b2c6ecf44ddc8ea77bb29e9c159e0ff431ac32451d00ab7a5575cd59b02640de",
+  "results": {
+    "C-001": {
+      "query": "Can I return an item purchased 35 days ago?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 1781.4,
+      "error": null
+    },
+    "C-002": {
+      "query": "How long does it take to receive a refund after returning an item?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 906.0,
+      "error": null
+    },
+    "C-003": {
+      "query": "Is there a return shipping fee for gift cards?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 981.7,
+      "error": null
+    },
+    "C-004": {
+      "query": "How long does the password reset link last?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 876.2,
+      "error": null
+    },
+    "C-005": {
+      "query": "What should I do if I don't receive the password reset email?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 1041.5,
+      "error": null
+    },
+    "C-006": {
+      "query": "How long do I have to click the link to confirm my new email address?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 876.7,
+      "error": null
+    },
+    "C-007": {
+      "query": "Can I undo account deletion later?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 753.4,
+      "error": null
+    },
+    "C-008": {
+      "query": "Do you ship express shipping to Canada?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 907.0,
+      "error": null
+    },
+    "C-009": {
+      "query": "Can I change the delivery address on my order if it has already shipped?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 859.2,
+      "error": null
+    },
+    "C-010": {
+      "query": "How do I track my order if I checked out as a guest?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 1087.2,
+      "error": null
+    },
+    "C-011": {
+      "query": "Do you accept Bitcoin as a payment method?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 754.1,
+      "error": null
+    },
+    "C-012": {
+      "query": "Why was my card declined at checkout if the charge appears on my statement?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 1156.7,
+      "error": null
+    },
+    "C-013": {
+      "query": "Can I combine a promo code with a gift card?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 774.9,
+      "error": null
+    },
+    "C-014": {
+      "query": "What are my options if it's too late to cancel my order through the Orders section?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 1152.9,
+      "error": null
+    },
+    "C-015": {
+      "query": "Will I receive a refund for my Plus membership cancellation?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 1126.8,
+      "error": null
+    },
+    "C-016": {
+      "query": "What should I do if my package is late and it's been 4 business days since the last tracking update?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 1092.0,
+      "error": null
+    },
+    "C-017": {
+      "query": "What if it's been 10 days?",
+      "outcome": "failed",
+      "requests": 1,
+      "latency_ms": 1291.2,
+      "error": null
+    },
+    "C-018": {
+      "query": "Does the warranty cover water damage?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 753.9,
+      "error": null
+    },
+    "C-019": {
+      "query": "What steps can I take to resolve app crashes on Android 10?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 843.1,
+      "error": null
+    },
+    "C-020": {
+      "query": "Will I be charged twice if I retry checkout after an error?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 992.1,
+      "error": null
+    },
+    "C-021": {
+      "query": "How much does express shipping cost?",
+      "outcome": "unchanged",
+      "requests": 1,
+      "latency_ms": 922.1,
+      "error": null
+    },
+    "C-022": {
+      "query": "Where can I download an invoice for my order?",
+      "outcome": "unchanged",
+      "requests": 1,
+      "latency_ms": 966.6,
+      "error": null
+    },
+    "C-023": {
+      "query": "How do I unlock my account after too many sign-in attempts?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 898.9,
+      "error": null
+    },
+    "C-024": {
+      "query": "How do I set up two-factor authentication?",
+      "outcome": "unchanged",
+      "requests": 1,
+      "latency_ms": 810.6,
+      "error": null
+    },
+    "C-025": {
+      "query": "Can I get a price adjustment if the price dropped after I bought the item?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 973.3,
+      "error": null
+    },
+    "C-026": {
+      "query": "When will the blue jacket be back in stock?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 6033.0,
+      "error": null
+    },
+    "C-027": {
+      "query": "Why am I not receiving any emails from you?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 881.9,
+      "error": null
+    },
+    "C-028": {
+      "query": "Can I do that too?",
+      "outcome": "needs_clarification",
+      "requests": 1,
+      "latency_ms": 809.6,
+      "error": null
+    },
+    "C-029": {
+      "query": "How long is the phone number update valid for?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 774.8,
+      "error": null
+    },
+    "C-030": {
+      "query": "How do I cancel my Plus membership?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 974.8,
+      "error": null
+    },
+    "C-031": {
+      "query": "What about the second one?",
+      "outcome": "needs_clarification",
+      "requests": 1,
+      "latency_ms": 976.5,
+      "error": null
+    },
+    "C-032": {
+      "query": "How long should I wait for my order or refund?",
+      "outcome": "rewritten",
+      "requests": 1,
+      "latency_ms": 949.9,
+      "error": null
+    }
+  }
+}

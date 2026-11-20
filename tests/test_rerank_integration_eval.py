@@ -17,9 +17,17 @@ import rerank_experiment as rx  # noqa: E402
 from support_agent.kb import load_articles  # noqa: E402
 from support_agent.rerank import RerankConfig, rerank_articles  # noqa: E402
 
-ARTICLES = load_articles()
+ARTICLES = load_articles(cal.HISTORICAL_KB_PATH)
 ORIGINAL = cal.load_cases(cal.DATASET_PATH)
 HOLDOUT = cal.load_cases(rx.HOLDOUT_DATASET_PATH)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def v1_knowledge_base():
+    """The saved fixtures were made from KB v1; the real hybrid retriever's
+    keyword half must read the same articles (set before any module fixture)."""
+    with cal.historical_kb():
+        yield
 
 
 @pytest.fixture(scope="module")

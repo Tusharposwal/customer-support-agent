@@ -12,7 +12,8 @@ from functools import lru_cache
 
 from dotenv import load_dotenv
 
-from support_agent.answer import HANDOFF_MESSAGE, SupportAnswer, generate_answer
+from support_agent import query_rewrite
+from support_agent.answer import CLARIFICATION_MESSAGE, HANDOFF_MESSAGE, SupportAnswer, generate_answer
 from support_agent.cohere_calls import chat_timeout, close_client, describe_error, embed_timeout
 from support_agent.rerank import RerankConfig, config_from_env, rerank_articles
 
@@ -26,9 +27,17 @@ class ConfigurationError(RuntimeError):
 ARTICLE_FIELDS = ("id", "title", "text", "url")
 
 
+NEEDS_CLARIFICATION = "needs_clarification"
+
+
 def _handoff(reason: str) -> SupportAnswer:
     """Safe customer-facing hand-off. Never contains error details."""
     return SupportAnswer(answer=HANDOFF_MESSAGE, sources=[], escalate=True, reason=reason)
+
+
+def _clarification() -> SupportAnswer:
+    """Ask the customer to say more. Not escalated, no sources, fixed text."""
+    return SupportAnswer(answer=CLARIFICATION_MESSAGE, sources=[], escalate=False, reason=NEEDS_CLARIFICATION)
 
 
 def _valid_articles(articles) -> bool:
@@ -47,12 +56,17 @@ def _valid_articles(articles) -> bool:
     return True
 
 
-def _checked_result(result, articles: list[dict]) -> SupportAnswer:
+def _checked_result(result, articles: list[dict], *, clarification_allowed: bool = False) -> SupportAnswer:
     """Last gate before the customer sees anything.
 
     A hand-off always uses the standard message with no sources. An answer must
     have text and at least one source, and every source must be an article that
     was given to the generator (same ID, title and URL).
+
+    A clarification request (reason "needs_clarification") passes only when
+    the agent itself asked for one (`clarification_allowed`), and only as the
+    fixed message with no sources and no escalation. It is never accepted from
+    the answer generator, so it can't be used to skip the citation checks.
     """
     if not isinstance(result, SupportAnswer):
         logger.warning("Answer generator returned %s, not SupportAnswer", type(result).__name__)
@@ -65,6 +79,12 @@ def _checked_result(result, articles: list[dict]) -> SupportAnswer:
     if result.escalate:
         reason = result.reason if isinstance(result.reason, str) and result.reason else "agent_error"
         return _handoff(reason)
+
+    if result.reason == NEEDS_CLARIFICATION:
+        if clarification_allowed and result.answer == CLARIFICATION_MESSAGE and result.sources == []:
+            return _clarification()
+        logger.warning("Unexpected clarification result")
+        return _handoff("agent_error")
 
     if result.reason != "answered":
         # An answer labelled as a failure (or not labelled) is contradictory.
@@ -136,19 +156,34 @@ def close_default_client() -> None:
 def answer_question(
     question: str,
     *,
+    history: list[dict] | None = None,
+    trace: dict | None = None,
     retriever=None,
     client=None,
     generator=generate_answer,
     reranker=rerank_articles,
     rerank_config: RerankConfig | None = None,
+    rewriter=None,
 ) -> SupportAnswer:
     """Answer a customer question from the knowledge base, or hand off to a human.
 
-    `retriever`, `client`, `generator` and `reranker` default to the real
-    components and can be replaced with fakes in tests. The chat model comes
-    from COHERE_CHAT_MODEL (read inside `generate_answer`). Reranking is off
-    unless `rerank_config` (default: COHERE_RERANK_* settings) enables it.
+    `history` is the earlier messages of the conversation
+    ([{"role": "customer" | "assistant", "content": ...}], oldest first). It
+    is used only to rewrite a follow-up into a standalone question for
+    retrieval (query_rewrite); it is never given to the answer generator and
+    is never evidence. Without history (a first message) no rewrite call is
+    made and the pipeline is exactly as before.
+
+    If `trace` is a dict, it receives "rewrite" (the query_rewrite outcome)
+    and "retrieval_query" (what was searched for), for storage and logs.
+
+    `retriever`, `client`, `generator`, `reranker` and `rewriter` default to
+    the real components and can be replaced with fakes in tests. The chat
+    model comes from COHERE_CHAT_MODEL (read inside `generate_answer`).
+    Reranking is off unless `rerank_config` (default: COHERE_RERANK_*
+    settings) enables it.
     """
+    trace = {} if trace is None else trace
     if not isinstance(question, str) or not question.strip():
         return _handoff("empty_question")
 
@@ -158,12 +193,29 @@ def answer_question(
         # Checked here so a typo is a configuration error, not an API failure.
         chat_timeout()
         embed_timeout()
+        query_rewrite.rewrite_timeout()
     except Exception as error:
         logger.error("Support agent is not configured: %s", type(error).__name__)
         return _handoff("configuration_error")
 
     try:
-        articles = (retriever or _hybrid_retrieve)(question)
+        rewrite = (rewriter or query_rewrite.rewrite_question)(question, history, client)
+        if not isinstance(rewrite, query_rewrite.Rewrite) or not isinstance(rewrite.query, str) or not rewrite.query.strip():
+            raise TypeError("rewriter returned an unusable result")
+    except Exception as error:  # rewrite_question never raises; this is a safety net.
+        logger.warning("Query rewrite failed, using the message as written: %s", type(error).__name__)
+        rewrite = query_rewrite.Rewrite(query=question, outcome=query_rewrite.FAILED)
+    trace["rewrite"] = rewrite.outcome
+
+    if rewrite.outcome == query_rewrite.NEEDS_CLARIFICATION:
+        return _checked_result(_clarification(), [], clarification_allowed=True)
+
+    # Only a checked rewrite replaces the message for retrieval.
+    query = rewrite.query if rewrite.outcome == query_rewrite.REWRITTEN else question
+    trace["retrieval_query"] = query
+
+    try:
+        articles = (retriever or _hybrid_retrieve)(query)
     except Exception as error:
         logger.warning("Retrieval failed: %s", describe_error(error))
         return _handoff("retrieval_error")
@@ -178,7 +230,7 @@ def answer_question(
 
     if rerank_config.enabled:
         try:
-            reranked = reranker(question, articles, client, rerank_config)
+            reranked = reranker(query, articles, client, rerank_config)
             retrieved = {article["id"]: article for article in articles}
             # Reranking may only re-order and remove articles, never change them.
             if not _valid_articles(reranked) or any(
@@ -204,7 +256,10 @@ def answer_question(
                 return _handoff("below_rerank_threshold")
 
     try:
-        result = generator(question, articles, client)
+        if query != question:
+            result = generator(question, articles, client, standalone_query=query)
+        else:
+            result = generator(question, articles, client)  # Exactly as before conversations.
     except Exception as error:  # Safety net; generate_answer handles API errors itself.
         logger.warning("Answer generation failed: %s", type(error).__name__)
         return _handoff("agent_error")

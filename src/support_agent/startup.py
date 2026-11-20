@@ -8,8 +8,10 @@ place:
     COHERE_RERANK_*                  rerank.config_from_env
     COHERE_CHAT_TIMEOUT_SECONDS,
     COHERE_EMBED_TIMEOUT_SECONDS     cohere_calls.chat_timeout / embed_timeout
+    COHERE_REWRITE_TIMEOUT_SECONDS   query_rewrite.rewrite_timeout
     CHAT_RATE_LIMIT_PER_MINUTE/DAY   rate_limit.limiter_from_env
     LOG_LEVEL                        log_config.log_level_from_env
+    CONVERSATION_DB_PATH             conversation_store.db_path_from_env
     data/kb.json                     kb.load_articles, plus "not empty"
 
 Nothing here imports `cohere`, creates a client or uses the network: an API
@@ -26,7 +28,9 @@ from dotenv import load_dotenv
 from support_agent import kb
 from support_agent.agent import ConfigurationError, api_key_from_env
 from support_agent.cohere_calls import chat_timeout, embed_timeout
+from support_agent.conversation_store import db_path_from_env
 from support_agent.log_config import log_level_from_env
+from support_agent.query_rewrite import rewrite_timeout
 from support_agent.rate_limit import limiter_from_env
 from support_agent.rerank import config_from_env
 
@@ -62,8 +66,10 @@ def find_problems(environ: Mapping[str, str] | None = None, kb_path: Path | None
         lambda: config_from_env(environ),
         lambda: chat_timeout(environ),
         lambda: embed_timeout(environ),
+        lambda: rewrite_timeout(environ),
         lambda: limiter_from_env(environ),
         lambda: log_level_from_env(environ),
+        lambda: db_path_from_env(environ),
     )
 
     problems = []

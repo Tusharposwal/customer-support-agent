@@ -28,6 +28,13 @@ _COMPLETE_FINISH_REASONS = {"COMPLETE", "STOP_SEQUENCE"}
 # The model stopped because of a failure on Cohere's side.
 _FAILED_FINISH_REASONS = {"ERROR", "TIMEOUT"}
 
+# Sent when a follow-up can't be understood from the conversation. Not a
+# hand-off and not an answer: no sources, nothing escalated.
+CLARIFICATION_MESSAGE = (
+    "I'm not sure what you're referring to. Could you tell me a bit more, "
+    "for example which order, payment or account setting your question is about?"
+)
+
 HANDOFF_MESSAGE = (
     "I'm not able to answer this confidently from our help articles. "
     "I've passed your question to our support team, and a team member "
@@ -100,8 +107,35 @@ def _extract_cited_ids(response) -> list[str]:
     return cited_ids
 
 
-def generate_answer(question: str, articles: list[dict], client, model: str | None = None) -> SupportAnswer:
-    """Answer `question` from `articles` using a Cohere ClientV2-compatible `client`."""
+def user_message(question: str, standalone_query: str | None = None) -> str:
+    """The user turn sent to the model. A first message (or one that needed
+    no rewriting) is sent exactly as before. For a rewritten follow-up, the
+    standalone question is added so the model knows what is being asked; it
+    is labelled as not being a source of facts. Earlier assistant replies are
+    never sent here."""
+    if not standalone_query or standalone_query == question:
+        return question
+    return (
+        f"Customer's latest message: {question}\n\n"
+        "The same question rewritten to stand on its own, using the earlier "
+        f"conversation (this is not a source of facts): {standalone_query}"
+    )
+
+
+def generate_answer(
+    question: str,
+    articles: list[dict],
+    client,
+    model: str | None = None,
+    *,
+    standalone_query: str | None = None,
+) -> SupportAnswer:
+    """Answer `question` from `articles` using a Cohere ClientV2-compatible `client`.
+
+    `standalone_query` is the rewritten form of a follow-up (see
+    query_rewrite); it only clarifies the question. The documents remain the
+    only allowed source of facts and the citation checks are unchanged.
+    """
     if not question or not question.strip():
         return _escalation("empty_question")
 
@@ -120,7 +154,7 @@ def generate_answer(question: str, articles: list[dict], client, model: str | No
             model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": question},
+                {"role": "user", "content": user_message(question, standalone_query)},
             ],
             documents=documents,
             temperature=0,

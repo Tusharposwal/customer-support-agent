@@ -1,8 +1,11 @@
 """Logging for the support_agent package.
 
 Only the `support_agent` logger is configured (one handler, on stderr like
-Uvicorn's own logs). The root logger and Uvicorn's loggers are left alone, so
-Uvicorn keeps its startup and access logs and nothing is printed twice.
+Uvicorn's own logs). The root logger and Uvicorn's handlers are left alone, so
+Uvicorn keeps its startup and access logs and nothing is printed twice. The one
+change to Uvicorn: its access log gets a filter that hides conversation IDs in
+request paths (GET /conversations/<id>), because an ID grants access to its
+conversation and must never be logged.
 
 Every line has a timestamp, level, logger name and the current request ID
 ("-" outside a request):
@@ -16,6 +19,7 @@ Settings:
 import contextvars
 import logging
 import os
+import re
 import sys
 from collections.abc import Mapping
 
@@ -50,6 +54,34 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
+_CONVERSATION_PATH = re.compile(r"/conversations/[^/?#\s\"]*")
+REDACTED_PATH = "/conversations/<redacted>"
+ACCESS_LOGGER = "uvicorn.access"
+
+
+def redact_conversation_ids(text: str) -> str:
+    return _CONVERSATION_PATH.sub(REDACTED_PATH, text)
+
+
+class ConversationIdRedactor(logging.Filter):
+    """Replaces the ID in /conversations/<id> paths in a log record's message
+    and arguments (Uvicorn passes the request path as an argument)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            record.msg = redact_conversation_ids(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(redact_conversation_ids(a) if isinstance(a, str) else a for a in record.args)
+        return True
+
+
+def configure_access_log_redaction() -> None:
+    """Attach ConversationIdRedactor to Uvicorn's access logger (once)."""
+    access = logging.getLogger(ACCESS_LOGGER)
+    if not any(isinstance(f, ConversationIdRedactor) for f in access.filters):
+        access.addFilter(ConversationIdRedactor())
+
+
 def configure_logging(level: int) -> None:
     """Give the support_agent logger its level and one formatted handler.
 
@@ -70,3 +102,4 @@ def configure_logging(level: int) -> None:
     logger.addHandler(handler)
     logger.setLevel(level)
     logger.propagate = False
+    configure_access_log_redaction()

@@ -10,7 +10,7 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
-from support_agent import agent, api, log_config, startup
+from support_agent import conversation_store, agent, api, log_config, startup
 from support_agent.answer import HANDOFF_MESSAGE, SupportAnswer
 from support_agent.api import app
 from support_agent.rate_limit import RateLimiter
@@ -56,7 +56,7 @@ class FakeAgent:
         self.result, self.error, self.log_line = result, error, log_line
         self.questions = []
 
-    def __call__(self, question):
+    def __call__(self, question, **kwargs):
         self.questions.append(question)
         if self.log_line:
             logging.getLogger("support_agent.agent").warning(self.log_line)
@@ -194,7 +194,7 @@ def test_startup_logs_ready_and_outcomes_at_default_level(env, use_agent, capsys
     request_id = response.headers["X-Request-ID"]
     assert re.fullmatch(
         rf"\S+ \S+ INFO support_agent\.api \[{request_id}\] chat_request status=200 escalate=false "
-        r"reason=answered sources=1 duration_ms=\d+(\.\d)?",
+        r"reason=answered sources=1 duration_ms=\d+(\.\d)? conversation=[0-9a-f]{12} turn=1 rewrite=none",
         outcome_line,
     )
 
@@ -303,8 +303,10 @@ def test_handoff_outcomes(use_agent, caplog, reason):
     assert record.levelno == logging.INFO
     assert record.getMessage() == (
         f"chat_request status=200 escalate=true reason={reason} sources=0 "
-        f"duration_ms={record.chat_outcome['duration_ms']}"
+        f"duration_ms={record.chat_outcome['duration_ms']} "
+        f"conversation={record.chat_outcome['conversation']} turn=1 rewrite=none"
     )
+    assert record.chat_outcome["conversation"] == conversation_store.log_hash(response.json()["conversation_id"])
 
 
 def test_duration_is_measured_in_milliseconds(use_agent, caplog, monkeypatch):

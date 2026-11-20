@@ -1,0 +1,21 @@
+
+[
+  {
+    "id": "KB-001",
+    "title": "Reset your password",
+    "text": "To reset your password, open the sign-in page, select Forgot password, and follow the instructions sent to your registered email address.",
+    "url": "https://support.example.com/password-reset"
+  },
+  {
+    "id": "KB-002",
+    "title": "Refund eligibility",
+    "text": "Refund requests are accepted within 30 days of purchase. Include your order number when contacting support. Requests outside this period require review by a support representative.",
+    "url": "https://support.example.com/refunds"
+  },
+  {
+    "id": "KB-003",
+    "title": "Track an order",
+    "text": "To track an order, open Orders in your account and select the order you want to view. The tracking page displays the latest available shipping status.",
+    "url": "https://support.example.com/order-tracking"
+  }
+]

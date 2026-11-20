@@ -48,6 +48,26 @@ def no_real_retry_waits(monkeypatch):
     return waits
 
 
+@pytest.fixture(autouse=True)
+def conversation_db(tmp_path):
+    """Every test gets its own temporary conversation database: startup (the
+    lifespan) opens it through CONVERSATION_DB_PATH, and tests that call
+    /chat without running startup find it already in api.conversations.
+    No test ever touches the real var/ folder. Returns the store.
+
+    Uses its own MonkeyPatch (not the test's), so its undo order can't
+    interfere with patches the test itself makes."""
+    from support_agent import api, conversation_store
+
+    path = tmp_path / "conversations.sqlite3"
+    store = conversation_store.ConversationStore(path)
+    store.initialize()
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv(conversation_store.DB_PATH_ENV, str(path))
+        patch.setattr(api, "conversations", store)
+        yield store
+
+
 class FakeEmbedClient:
     """Stands in for cohere.ClientV2. Outcomes: an exception, "ok" (one vector
     per text) or a ready-made response."""

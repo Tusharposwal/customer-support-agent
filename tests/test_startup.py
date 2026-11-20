@@ -364,7 +364,7 @@ def test_dotenv_rate_limit_is_enforced_on_chat(dotenv_file, monkeypatch):
     dotenv_file("CHAT_RATE_LIMIT_PER_MINUTE=2\n")
     answer = agent.SupportAnswer(answer="Hi", sources=[], escalate=True, reason="no_articles")
     questions = []
-    monkeypatch.setattr(agent, "answer_question", lambda q: questions.append(q) or answer)
+    monkeypatch.setattr(agent, "answer_question", lambda q, **kwargs: questions.append(q) or answer)
 
     with TestClient(app) as client:
         statuses = [client.post("/chat", json={"question": "hello"}).status_code for _ in range(3)]

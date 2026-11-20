@@ -1,8 +1,20 @@
 import json
+from pathlib import Path
 
 import pytest
 
+from support_agent import kb
 from support_agent.kb import load_articles, retrieve
+
+# The keyword-retrieval tests below were written (and the title-match rule was
+# tuned) against the 3-article KB v1. They keep running on that frozen copy so
+# they still test the same behaviour; KB v2 checks are in tests/test_kb_v2.py.
+V1_KB_PATH = Path(__file__).resolve().parents[1] / "evals" / "fixtures" / "kb_v1.json"
+
+
+@pytest.fixture(autouse=True)
+def v1_knowledge_base(monkeypatch):
+    monkeypatch.setattr(kb, "KB_PATH", V1_KB_PATH)
 
 
 def _valid_article(**overrides):

@@ -12,6 +12,8 @@ from support_agent.kb import load_articles
 EVALS_DIR = Path(__file__).resolve().parents[1] / "evals"
 HOLDOUT_PATH = EVALS_DIR / "rerank_holdout_queries.json"
 ORIGINAL_PATH = EVALS_DIR / "retrieval_queries.json"
+# The holdout questions are labelled against the frozen 3-article KB v1.
+V1_KB_PATH = EVALS_DIR / "fixtures" / "kb_v1.json"
 
 
 def _load(path):
@@ -52,7 +54,7 @@ def test_ten_answerable_and_ten_unsupported(holdout):
 
 
 def test_expected_ids_exist_and_cover_every_article(holdout):
-    kb_ids = {article["id"] for article in load_articles()}
+    kb_ids = {article["id"] for article in load_articles(V1_KB_PATH)}
     used = {c["expected_id"] for c in holdout if c["expected_id"] is not None}
 
     assert used <= kb_ids

@@ -2,9 +2,13 @@ import json
 from pathlib import Path
 
 from support_agent.kb import retrieve
+from calibrate_semantic import historical_kb  # same folder (run as a script)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = PROJECT_ROOT / "evals" / "retrieval_queries.json"
+
+# These questions are labelled against the frozen 3-article KB (v1). For the
+# current knowledge base use evals/evaluate_kb_v2.py.
 
 
 def evaluate():
@@ -70,4 +74,5 @@ def evaluate():
 
 
 if __name__ == "__main__":
-    evaluate()
+    with historical_kb():
+        evaluate()

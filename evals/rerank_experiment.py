@@ -484,6 +484,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="question set to use (default: original)")
     args = parser.parse_args(argv)
 
+    # The saved results were made against the frozen v1 knowledge base.
+    with cal.historical_kb():
+        return _run(args)
+
+
+def _run(args) -> int:
     config = DATASETS[args.dataset]
     limits = {"expected_questions": config.expected_questions, "max_calls": config.max_calls}
     articles = load_articles()

@@ -190,6 +190,19 @@ button {
   cursor: pointer;
 }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary {
+  flex: none;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.brand-text { flex: 1; min-width: 0; }
+
+/* A short system note in the conversation (e.g. a conversation could not be restored). */
+.notice { margin: 4px 0; text-align: center; color: var(--muted); font-size: 0.85rem; }
 
 .hint { margin: 6px 0 12px; color: var(--muted); font-size: 0.8rem; min-height: 1.2em; }
 .hint.warn { color: var(--error-text); }
@@ -208,6 +221,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   h1 { font-size: 1.1rem; }
   .subtitle { font-size: 0.85rem; }
   .bubble { max-width: 92%; }
+  .brand { flex-wrap: wrap; }
+  .brand-mark { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

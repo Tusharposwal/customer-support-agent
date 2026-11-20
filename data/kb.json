@@ -1,21 +1,240 @@
-
 [
   {
     "id": "KB-001",
     "title": "Reset your password",
-    "text": "To reset your password, open the sign-in page, select Forgot password, and follow the instructions sent to your registered email address.",
+    "category": "password_login",
+    "text": "To reset your password, open the sign-in page, select Forgot password, and follow the instructions sent to your registered email address. The reset link expires 60 minutes after it is sent, and only the most recent link works, so if you request several emails, use the newest one. Your new password must be at least 10 characters long and include at least one letter and one number. Resetting your password also unlocks an account that was locked after too many failed sign-in attempts.",
     "url": "https://support.example.com/password-reset"
   },
   {
     "id": "KB-002",
     "title": "Refund eligibility",
-    "text": "Refund requests are accepted within 30 days of purchase. Include your order number when contacting support. Requests outside this period require review by a support representative.",
+    "category": "returns_refunds",
+    "text": "Refund requests are accepted within 30 days of purchase. Include your order number when contacting support. Requests outside this period require review by a support representative. The 30 days are counted from the order date shown in your order confirmation email. To get a refund for an item you have received, start a return from your Orders page; the refund is issued after the returned item arrives at our warehouse. Some items cannot be returned or refunded, such as gift cards and digital downloads.",
     "url": "https://support.example.com/refunds"
   },
   {
     "id": "KB-003",
     "title": "Track an order",
-    "text": "To track an order, open Orders in your account and select the order you want to view. The tracking page displays the latest available shipping status.",
+    "category": "orders_shipping",
+    "text": "To track an order, open Orders in your account and select the order you want to view. The tracking page displays the latest available shipping status. When your order ships, we email you a tracking number and the estimated delivery date. Tracking updates can take up to 24 hours to appear after the shipping email is sent. If you checked out as a guest, use the Track order page with your order number and the email address you used at checkout.",
     "url": "https://support.example.com/order-tracking"
+  },
+  {
+    "id": "KB-004",
+    "title": "Change the email address on your account",
+    "category": "account",
+    "text": "To change your email address, sign in and go to Account Settings > Profile > Email address. Enter the new address and your current password. We send a confirmation link to the new address; the link is valid for 24 hours, and the change takes effect only after you select it. Until then you keep signing in with your old email address. We also send a notice to your old address so you know the change was requested. Each email address can belong to only one account.",
+    "url": "https://support.example.com/change-email"
+  },
+  {
+    "id": "KB-005",
+    "title": "Update your phone number",
+    "category": "account",
+    "text": "To update your phone number, go to Account Settings > Profile > Phone number and enter the new number. We text a 6-digit verification code to the new number; the code is valid for 10 minutes. The new number is saved once you enter the code. Your phone number is used for delivery text updates and, if you chose SMS, for two-factor authentication codes. If you no longer have access to the old number and it receives your two-factor codes, sign in with a backup code first.",
+    "url": "https://support.example.com/phone-number"
+  },
+  {
+    "id": "KB-006",
+    "title": "Delete your account",
+    "category": "account",
+    "text": "To permanently delete your account, go to Account Settings > Privacy > Delete account and confirm with your password. You cannot delete your account while you have an order that is Processing or Shipped; wait until it is delivered or cancel it first. If you have an active Plus membership, cancel it before deleting your account. After you confirm, there is a 14-day grace period: signing in during those 14 days cancels the deletion. After 14 days the account is deleted permanently, including your order history, saved addresses and any remaining gift card balance or store credit, and it cannot be restored.",
+    "url": "https://support.example.com/delete-account"
+  },
+  {
+    "id": "KB-007",
+    "title": "Set up two-factor authentication",
+    "category": "account",
+    "text": "Two-factor authentication adds a second step when you sign in. To turn it on, go to Account Settings > Security > Two-factor authentication and choose either an authenticator app or SMS text messages. When you turn it on, we show 10 single-use backup codes; store them somewhere safe. If you lose your phone or authenticator app, sign in with a backup code and then set up two-factor authentication again. If you have no backup codes left, contact support; we must verify your identity before removing two-factor authentication, which can take up to 3 business days.",
+    "url": "https://support.example.com/two-factor-authentication"
+  },
+  {
+    "id": "KB-008",
+    "title": "Guest checkout and creating an account",
+    "category": "account",
+    "text": "You can place an order without an account by choosing Check out as guest. Guest orders can be tracked on the Track order page with the order number and the email address used at checkout. To create an account, select Sign up and use your email address and a password. If you later create an account with the same email address you used for guest orders, those orders are added to your account automatically. An account is required to save addresses, view your full order history and join the Plus membership.",
+    "url": "https://support.example.com/guest-checkout"
+  },
+  {
+    "id": "KB-009",
+    "title": "Change your password",
+    "category": "password_login",
+    "text": "If you know your current password and want to change it, sign in and go to Account Settings > Security > Change password. Enter your current password, then the new one twice. The new password must be at least 10 characters long and include at least one letter and one number. After the change, you are signed out on all other devices and must sign in again there with the new password. If you do not know your current password, use Forgot password on the sign-in page instead.",
+    "url": "https://support.example.com/change-password"
+  },
+  {
+    "id": "KB-010",
+    "title": "Account locked after failed sign-in attempts",
+    "category": "password_login",
+    "text": "For your security, your account is locked for 30 minutes after 5 incorrect password attempts in a row. While it is locked, you cannot sign in even with the correct password. You can wait 30 minutes and try again, or reset your password with Forgot password on the sign-in page, which unlocks the account immediately. If you did not make the failed attempts yourself, reset your password and turn on two-factor authentication.",
+    "url": "https://support.example.com/account-locked"
+  },
+  {
+    "id": "KB-011",
+    "title": "Password reset email not received",
+    "category": "password_login",
+    "text": "Password reset emails usually arrive within 10 minutes. If yours has not arrived, check your spam or junk folder, and make sure you entered the email address registered on your account; we only send reset emails to registered addresses. Adding no-reply@example.com to your contacts can help. You can request at most 5 reset emails per hour. Only the most recent reset link works, so if several emails arrive, use the newest one.",
+    "url": "https://support.example.com/reset-email-missing"
+  },
+  {
+    "id": "KB-012",
+    "title": "Shipping options, costs and delivery times",
+    "category": "orders_shipping",
+    "text": "Within the United States we offer two shipping speeds. Standard shipping takes 3-5 business days and costs $4.99, or is free when your order subtotal is $50 or more after discounts and before tax. Express shipping takes 1-2 business days and costs $12.99; it is free for Plus members. Orders placed before 2 p.m. Eastern Time on a business day ship the same day; orders placed later ship the next business day. Delivery times are counted from the day the order ships, and business days are Monday to Friday, excluding public holidays.",
+    "url": "https://support.example.com/shipping-options"
+  },
+  {
+    "id": "KB-013",
+    "title": "Where we ship",
+    "category": "orders_shipping",
+    "text": "We ship to addresses in the United States, including Alaska and Hawaii, and to Canada. We do not ship to any other country. Express shipping is not available to Alaska, Hawaii, Canada or PO boxes; those addresses can use Standard shipping only. Orders to Canada take 5-8 business days, cost $9.99 to ship regardless of the order total, and are charged in US dollars.",
+    "url": "https://support.example.com/shipping-destinations"
+  },
+  {
+    "id": "KB-014",
+    "title": "Change the shipping address on an order",
+    "category": "orders_shipping",
+    "text": "You can change the shipping address only while the order status is Processing. An order stays in Processing until it is packed, which usually happens within 1 hour of ordering. To change it, open Orders, select the order and choose Change address. Once the status is Shipped, the address cannot be changed by us or by support. If the carrier cannot deliver the package and returns it to us, we refund the item price to your original payment method when it arrives back at our warehouse. To change the default address for future orders, edit it under Account Settings > Addresses.",
+    "url": "https://support.example.com/change-shipping-address"
+  },
+  {
+    "id": "KB-015",
+    "title": "Return an item",
+    "category": "returns_refunds",
+    "text": "You can return most items within 30 days of purchase. Items must be unused, in their original packaging and with any tags attached. To start a return, open Orders, select the order, choose Return items and select a reason. We email you a prepaid return label; drop off the package within 14 days of creating the return. Return shipping is free if the item arrived damaged, defective or was the wrong item; otherwise $5.95 is deducted from your refund. We do not offer direct exchanges: return the item and place a new order for the one you want. Returns requested after 30 days are reviewed by a support representative.",
+    "url": "https://support.example.com/returns"
+  },
+  {
+    "id": "KB-016",
+    "title": "Items that cannot be returned",
+    "category": "returns_refunds",
+    "text": "The following items cannot be returned or refunded: gift cards, digital downloads, personalized or engraved items, opened personal care and beauty products, and items marked Final sale on the product page. If one of these items arrives damaged, defective or is the wrong item, it is still covered: report it from your Orders page within 7 days of delivery, as described in our damaged or wrong items article.",
+    "url": "https://support.example.com/non-returnable-items"
+  },
+  {
+    "id": "KB-017",
+    "title": "Refund timing and payment method",
+    "category": "returns_refunds",
+    "text": "After your return arrives at our warehouse, we inspect it and issue the refund within 5 business days, and we email you when it is issued. Refunds go back to the original payment method. After we issue it, card and PayPal refunds can take 3-10 business days to appear, depending on your bank. Any part of an order paid with a gift card is refunded as store credit. Original shipping charges are refunded only if the item arrived damaged, defective or was the wrong item. For cancelled orders, see Cancel an order.",
+    "url": "https://support.example.com/refund-timing"
+  },
+  {
+    "id": "KB-018",
+    "title": "Accepted payment methods",
+    "category": "payments_billing",
+    "text": "We accept Visa, Mastercard, American Express, Discover, PayPal and our gift cards. You can pay with a gift card and cover any remaining amount with one card or PayPal. We do not accept cash on delivery, checks, bank transfers or cryptocurrency. All prices are in US dollars, including for orders shipped to Canada; your bank may add a currency conversion fee. You can save and remove cards under Account Settings > Payment methods.",
+    "url": "https://support.example.com/payment-methods"
+  },
+  {
+    "id": "KB-019",
+    "title": "Payment declined at checkout",
+    "category": "payments_billing",
+    "text": "If your payment is declined, no order is created and you are not charged. Check that the card number, expiry date and security code are correct, and that the billing address matches the one your bank has on file. Make sure the card has enough available funds. Banks sometimes block online payments they consider unusual; we are not told the reason for a decline, so contact your bank to find out why. You can also try another payment method such as PayPal.",
+    "url": "https://support.example.com/payment-declined"
+  },
+  {
+    "id": "KB-020",
+    "title": "Charged twice for one order",
+    "category": "payments_billing",
+    "text": "When you place an order, your bank shows a pending authorization. If a payment was retried at checkout, you may see more than one pending charge for the same order. Extra pending charges are released automatically within 3-5 business days and you do not need to do anything. If two completed (posted) charges appear for the same order, contact support with your order number and the last 4 digits of the card; we refund the duplicate charge within 5 business days.",
+    "url": "https://support.example.com/duplicate-charge"
+  },
+  {
+    "id": "KB-021",
+    "title": "Download an invoice or receipt",
+    "category": "payments_billing",
+    "text": "To download an invoice, open Orders, select the order and choose Download invoice. The invoice is a PDF and becomes available once the order ships. It shows the items, shipping cost, sales tax and the billing name and address used at checkout. Sales tax is calculated at checkout from the shipping address. Invoice details cannot be edited after the order ships. Your order confirmation email can be used as a receipt for the amount you paid.",
+    "url": "https://support.example.com/invoices"
+  },
+  {
+    "id": "KB-022",
+    "title": "Using promo codes",
+    "category": "payments_billing",
+    "text": "Enter a promo code in the Promo code field at checkout before you pay. Only one promo code can be used per order, and promo codes cannot be combined. A code cannot be added to an order after it is placed, and expired codes cannot be used. Promo codes cannot be used to buy gift cards. If you return items from an order that used a promo code, the refund is the amount you actually paid for those items after the discount.",
+    "url": "https://support.example.com/promo-codes"
+  },
+  {
+    "id": "KB-023",
+    "title": "Gift cards and store credit",
+    "category": "payments_billing",
+    "text": "Gift cards and store credit never expire and cannot be exchanged for cash. To check your balance, go to Account > Gift cards. To use a gift card, enter its code in the Gift card field at checkout; if the balance does not cover the order, pay the rest with a card or PayPal. Store credit from refunds is added to your account automatically and is used at checkout before other payment methods. Gift card and store credit balances are permanently removed if your account is deleted.",
+    "url": "https://support.example.com/gift-cards"
+  },
+  {
+    "id": "KB-024",
+    "title": "Cancel an order",
+    "category": "cancellations",
+    "text": "You can cancel an order, or individual items in it, only while its status is Processing, which usually lasts about 1 hour after ordering. Open Orders, select the order and choose Cancel order or Cancel items. Cancelled items are refunded in full to the original payment method, and the pending charge disappears from your statement within 3-5 business days. Once the order status is Shipped, it can no longer be cancelled; instead, return it after delivery under our return policy, within 30 days of purchase.",
+    "url": "https://support.example.com/cancel-order"
+  },
+  {
+    "id": "KB-025",
+    "title": "Cancel your Plus membership",
+    "category": "cancellations",
+    "text": "Plus membership costs $49 per year, includes free Express shipping on eligible orders, and renews automatically each year. We email a reminder 7 days before each renewal. To cancel, go to Account Settings > Membership > Cancel membership. After you cancel, your benefits continue until the end of the current membership year, and you are not charged again. Membership fees are not refunded for the remaining period, except that you get a full refund if you cancel within 14 days of joining or renewing and have not used free Express shipping during that time.",
+    "url": "https://support.example.com/cancel-plus"
+  },
+  {
+    "id": "KB-026",
+    "title": "Late package or tracking not updating",
+    "category": "delivery_problems",
+    "text": "Your estimated delivery date is shown on the tracking page for your order. Carriers sometimes run a little late, especially around holidays. Contact support if tracking has not updated for 5 business days, or if your package is more than 3 business days past its estimated delivery date. We will open an investigation with the carrier, which takes up to 7 business days. If the carrier confirms the package is lost, you can choose a replacement or a full refund.",
+    "url": "https://support.example.com/late-package"
+  },
+  {
+    "id": "KB-027",
+    "title": "Package marked delivered but not received",
+    "category": "delivery_problems",
+    "text": "If tracking says your package was delivered but you cannot find it, check around your property, your mailbox, with neighbours and at any building reception or parcel room. Carriers sometimes mark packages as delivered shortly before they arrive, so wait 48 hours. If it still has not arrived, report it within 14 days of the delivery date: open Orders, select the order and choose Report a problem. We investigate with the carrier, which takes up to 7 business days, and if the package is not found we send a replacement or a full refund.",
+    "url": "https://support.example.com/delivered-not-received"
+  },
+  {
+    "id": "KB-028",
+    "title": "Damaged, wrong or missing items",
+    "category": "delivery_problems",
+    "text": "If an item arrives damaged or defective, or you received the wrong item or an item is missing from your order, report it within 7 days of delivery: open Orders, select the order and choose Report a problem. For damaged items, include photos of the item and the packaging. Before reporting a missing item, check your shipping emails, because some orders ship in more than one package. We offer a replacement or a full refund, including shipping. If we need the item back, we send a free return label; otherwise you do not need to return it.",
+    "url": "https://support.example.com/damaged-wrong-items"
+  },
+  {
+    "id": "KB-029",
+    "title": "Product warranty",
+    "category": "product_info",
+    "text": "Electronics come with a 1-year limited warranty from the delivery date. The warranty covers manufacturing defects. It does not cover accidental damage, water damage or normal wear and tear. To make a claim, open Orders, select the order, choose Report a problem and then Warranty claim, and describe the problem with a photo or video. We will repair, replace or refund the item. Products other than electronics do not have an extended warranty; our return policy and damaged item reporting apply to them.",
+    "url": "https://support.example.com/warranty"
+  },
+  {
+    "id": "KB-030",
+    "title": "Out-of-stock products and restock alerts",
+    "category": "product_info",
+    "text": "When a product is out of stock, select Notify me on the product page and we will email you when it is back in stock. Restock alerts expire after 90 days. We cannot predict restock dates, reserve items or take backorders, and an out-of-stock item cannot be added to your cart. Stock levels change quickly, so an item that is back in stock may sell out again before you order.",
+    "url": "https://support.example.com/restock-alerts"
+  },
+  {
+    "id": "KB-031",
+    "title": "Price drop after purchase",
+    "category": "product_info",
+    "text": "If the price of an item you bought drops on our website within 7 days of your purchase, you can request a one-time price adjustment. Contact support with your order number and the item name, and we refund the difference to your original payment method. A promo code offered after your purchase does not count as a price drop. We do not match prices from other retailers or websites.",
+    "url": "https://support.example.com/price-adjustment"
+  },
+  {
+    "id": "KB-032",
+    "title": "App or website not working",
+    "category": "technical",
+    "text": "If the app or website is not loading or keeps showing errors, first check status.example.com for known problems. In the app, update to the latest version; the app supports iOS 16 or later and Android 11 or later. If the app keeps crashing, uninstall and reinstall it. On the website, clear your browser cache and cookies, try a private window, and turn off browser extensions such as ad blockers. We support the latest two versions of Chrome, Firefox, Safari and Edge.",
+    "url": "https://support.example.com/app-website-troubleshooting"
+  },
+  {
+    "id": "KB-033",
+    "title": "Error at checkout",
+    "category": "technical",
+    "text": "If you see an error at checkout, refresh the page and review your cart: an item may have gone out of stock, or your promo code may have expired. Do not submit the order again straight away, because this can create duplicate orders. First check your Orders page and your email. Order confirmation emails arrive within 15 minutes; if there is no confirmation and the order is not on your Orders page, the order was not placed and you can try again. If the error mentions your payment, see Payment declined at checkout or try another payment method.",
+    "url": "https://support.example.com/checkout-errors"
+  },
+  {
+    "id": "KB-034",
+    "title": "Not receiving order or shipping emails",
+    "category": "technical",
+    "text": "Order confirmation emails arrive within 15 minutes of ordering, and shipping emails are sent when your order ships. If you are not receiving them, check your spam or junk folder and add no-reply@example.com to your contacts. Make sure the email address under Account Settings > Profile is correct. Unsubscribing from marketing emails does not stop order and shipping emails. You can always see your order details and tracking on your Orders page.",
+    "url": "https://support.example.com/missing-emails"
   }
 ]

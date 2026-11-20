@@ -364,7 +364,7 @@ def test_saved_rerank_results_are_complete_and_valid(block_cohere):
     from support_agent.kb import load_articles
 
     cases = cal.load_cases()
-    data = rx.load_results(load_articles(), cases)
+    data = rx.load_results(load_articles(cal.HISTORICAL_KB_PATH), cases)
 
     assert len(data["results"]) == len(cases) == 17
     assert data["model"] in (rx.PRIMARY_MODEL, rx.FALLBACK_MODEL)
@@ -529,7 +529,7 @@ def test_real_holdout_dataset_passes_preflight():
 
     config = rx.DATASETS["holdout"]
     cases = cal.load_cases(config.queries_path)
-    plan = rx.preflight(load_articles(), cases, None, rx.PRIMARY_MODEL,
+    plan = rx.preflight(load_articles(cal.HISTORICAL_KB_PATH), cases, None, rx.PRIMARY_MODEL,
                         expected_questions=config.expected_questions, max_calls=config.max_calls)
 
     assert (plan["questions"], len(plan["missing"]), plan["max_calls"]) == (20, 20, 20)
@@ -540,4 +540,4 @@ def test_real_original_results_are_rejected_as_holdout(block_cohere):
     from support_agent.kb import load_articles
 
     with pytest.raises(rx.ResultsError, match="not 'holdout'"):
-        rx.load_results(load_articles(), cal.load_cases(), rx.RESULTS_PATH, "holdout")
+        rx.load_results(load_articles(cal.HISTORICAL_KB_PATH), cal.load_cases(), rx.RESULTS_PATH, "holdout")

@@ -143,7 +143,10 @@ def test_first_request_reuses_the_startup_clients(fake_sdk, semantic_kb):
         response = client.post("/chat", json={"question": "How do I reset my password?"})
 
     assert response.status_code == 200
-    assert response.json() == {"answer": HANDOFF_MESSAGE, "sources": [], "escalate": True, "reason": "llm_error"}
+    assert response.json() == {
+        "answer": HANDOFF_MESSAGE, "sources": [], "escalate": True, "reason": "llm_error",
+        "conversation_id": response.json()["conversation_id"],
+    }
     assert fake_sdk == created_at_startup  # no client created by the request
     assert len(semantic_kb.client.calls) == 2  # knowledge base + question, embedded on first use
 
@@ -294,7 +297,7 @@ def test_shutdown_leaves_clients_open_if_a_chat_never_finishes(fake_sdk, semanti
 
 
 def test_in_flight_count_returns_to_zero_after_errors(monkeypatch):
-    def failing_agent(question):
+    def failing_agent(question, **kwargs):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(agent, "answer_question", failing_agent)

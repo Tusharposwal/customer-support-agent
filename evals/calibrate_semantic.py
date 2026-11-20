@@ -15,14 +15,22 @@ import argparse
 import hashlib
 import json
 import sys
+from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 
+from support_agent import kb
 from support_agent.kb import load_articles
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = PROJECT_ROOT / "evals" / "retrieval_queries.json"
 FIXTURE_PATH = PROJECT_ROOT / "evals" / "fixtures" / "semantic_embeddings.json"
+
+# The 3-article knowledge base (v1) that every saved fixture in evals/fixtures/
+# was made from and both v1 question sets were labelled against. data/kb.json
+# has since grown (KB v2, Phase 5); historical experiments read this frozen,
+# byte-identical copy so their saved results stay reproducible.
+HISTORICAL_KB_PATH = PROJECT_ROOT / "evals" / "fixtures" / "kb_v1.json"
 
 FIXTURE_VERSION = 1
 MAX_EMBED_CALLS = 2
@@ -30,6 +38,21 @@ MAX_EMBED_CALLS = 2
 
 class FixtureError(ValueError):
     """The saved fixture is missing, malformed or out of date."""
+
+
+@contextmanager
+def historical_kb():
+    """Point support_agent.kb at the frozen v1 knowledge base inside the block.
+
+    Both load_articles() and keyword retrieve() read kb.KB_PATH when called,
+    so everything in the block (including the real hybrid retrieval) sees v1.
+    """
+    saved = kb.KB_PATH
+    kb.KB_PATH = HISTORICAL_KB_PATH
+    try:
+        yield HISTORICAL_KB_PATH
+    finally:
+        kb.KB_PATH = saved
 
 
 # --- Inputs and hashes -------------------------------------------------------
@@ -301,6 +324,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="create the fixture with 2 Cohere embed calls")
     args = parser.parse_args(argv)
 
+    with historical_kb():
+        return _run(args)
+
+
+def _run(args) -> int:
     articles = load_articles()
     cases = load_cases(DATASET_PATH)
 
