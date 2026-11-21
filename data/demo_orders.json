@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "notice": "Entirely fictional demo orders for testing the support agent. Not real customers, orders or carriers. Dates are stored as days before today, so the scenarios never go stale.",
+  "orders": [
+    {
+      "order_id": "ORD-1001",
+      "email": "maya.fernandes@example.com",
+      "status": "processing",
+      "ordered_days_ago": 0,
+      "delivered_days_ago": null,
+      "shipping": {"method": "standard", "country": "US", "carrier": null, "tracking_status": null, "estimated_delivery_in_days": null},
+      "items": [
+        {"name": "Quilted Rain Jacket", "category": "apparel", "quantity": 1, "opened": false, "final_sale": false, "personalized": false},
+        {"name": "Merino Scarf", "category": "accessories", "quantity": 1, "opened": false, "final_sale": false, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1002",
+      "email": "jonas.weber@example.com",
+      "status": "processing",
+      "ordered_days_ago": 0,
+      "delivered_days_ago": null,
+      "shipping": {"method": "express", "country": "US", "carrier": null, "tracking_status": null, "estimated_delivery_in_days": null},
+      "items": [
+        {"name": "Ceramic Table Lamp", "category": "home", "quantity": 1, "opened": false, "final_sale": false, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1003",
+      "email": "priya.nair@example.com",
+      "status": "shipped",
+      "ordered_days_ago": 2,
+      "delivered_days_ago": null,
+      "shipping": {"method": "standard", "country": "US", "carrier": "Northwind Parcel", "tracking_status": "In transit", "estimated_delivery_in_days": 3},
+      "items": [
+        {"name": "Wireless Earbuds", "category": "electronics", "quantity": 1, "opened": false, "final_sale": false, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1004",
+      "email": "luc.tremblay@example.com",
+      "status": "shipped",
+      "ordered_days_ago": 1,
+      "delivered_days_ago": null,
+      "shipping": {"method": "express", "country": "CA", "carrier": "Maple Express Freight", "tracking_status": "Out for delivery", "estimated_delivery_in_days": 0},
+      "items": [
+        {"name": "Trail Running Shoes", "category": "apparel", "quantity": 1, "opened": false, "final_sale": false, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1005",
+      "email": "maya.fernandes@example.com",
+      "status": "delivered",
+      "ordered_days_ago": 10,
+      "delivered_days_ago": 5,
+      "shipping": {"method": "standard", "country": "US", "carrier": "Northwind Parcel", "tracking_status": "Delivered", "estimated_delivery_in_days": null},
+      "items": [
+        {"name": "Linen Shirt", "category": "apparel", "quantity": 2, "opened": false, "final_sale": false, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1006",
+      "email": "sam.okafor@example.com",
+      "status": "delivered",
+      "ordered_days_ago": 30,
+      "delivered_days_ago": 25,
+      "shipping": {"method": "standard", "country": "US", "carrier": "Northwind Parcel", "tracking_status": "Delivered", "estimated_delivery_in_days": null},
+      "items": [
+        {"name": "Canvas Backpack", "category": "accessories", "quantity": 1, "opened": false, "final_sale": false, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1007",
+      "email": "sam.okafor@example.com",
+      "status": "delivered",
+      "ordered_days_ago": 31,
+      "delivered_days_ago": 26,
+      "shipping": {"method": "standard", "country": "US", "carrier": "Northwind Parcel", "tracking_status": "Delivered", "estimated_delivery_in_days": null},
+      "items": [
+        {"name": "Wool Beanie", "category": "accessories", "quantity": 1, "opened": false, "final_sale": false, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1008",
+      "email": "elena.rossi@example.com",
+      "status": "delivered",
+      "ordered_days_ago": 12,
+      "delivered_days_ago": 7,
+      "shipping": {"method": "standard", "country": "US", "carrier": "Northwind Parcel", "tracking_status": "Delivered", "estimated_delivery_in_days": null},
+      "items": [
+        {"name": "Glass Vase", "category": "home", "quantity": 1, "opened": false, "final_sale": false, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1009",
+      "email": "elena.rossi@example.com",
+      "status": "delivered",
+      "ordered_days_ago": 11,
+      "delivered_days_ago": 8,
+      "shipping": {"method": "express", "country": "US", "carrier": "Northwind Parcel", "tracking_status": "Delivered", "estimated_delivery_in_days": null},
+      "items": [
+        {"name": "Bluetooth Speaker", "category": "electronics", "quantity": 1, "opened": false, "final_sale": false, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1010",
+      "email": "kenji.sato@example.com",
+      "status": "delivered",
+      "ordered_days_ago": 6,
+      "delivered_days_ago": 2,
+      "shipping": {"method": "standard", "country": "US", "carrier": "Northwind Parcel", "tracking_status": "Delivered", "estimated_delivery_in_days": null},
+      "items": [
+        {"name": "$50 Gift Card", "category": "gift_card", "quantity": 1, "opened": false, "final_sale": false, "personalized": false},
+        {"name": "Photo Editing Course (Download)", "category": "digital", "quantity": 1, "opened": false, "final_sale": false, "personalized": false},
+        {"name": "Engraved Silver Bracelet", "category": "accessories", "quantity": 1, "opened": false, "final_sale": false, "personalized": true},
+        {"name": "Hydrating Face Cream", "category": "beauty", "quantity": 1, "opened": true, "final_sale": false, "personalized": false},
+        {"name": "Tinted Lip Balm", "category": "beauty", "quantity": 1, "opened": false, "final_sale": false, "personalized": false},
+        {"name": "Striped Summer Dress", "category": "apparel", "quantity": 1, "opened": false, "final_sale": true, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1011",
+      "email": "jonas.weber@example.com",
+      "status": "cancelled",
+      "ordered_days_ago": 3,
+      "delivered_days_ago": null,
+      "shipping": {"method": "standard", "country": "US", "carrier": null, "tracking_status": null, "estimated_delivery_in_days": null},
+      "items": [
+        {"name": "Desk Organizer", "category": "home", "quantity": 1, "opened": false, "final_sale": false, "personalized": false}
+      ]
+    },
+    {
+      "order_id": "ORD-1012",
+      "email": "amara.diallo@example.com",
+      "status": "delivered",
+      "ordered_days_ago": 50,
+      "delivered_days_ago": 45,
+      "shipping": {"method": "standard", "country": "CA", "carrier": "Maple Express Freight", "tracking_status": "Delivered", "estimated_delivery_in_days": null},
+      "items": [
+        {"name": "Cast Iron Skillet", "category": "home", "quantity": 1, "opened": false, "final_sale": false, "personalized": false},
+        {"name": "Clearance Oven Mitts", "category": "home", "quantity": 1, "opened": false, "final_sale": true, "personalized": false}
+      ]
+    }
+  ]
+}

@@ -39,7 +39,7 @@ class FakeAgent:
         self.error = None
         self.rewrite = None  # (retrieval_query, outcome) to put in the trace
 
-    def __call__(self, question, *, history=None, trace=None):
+    def __call__(self, question, *, history=None, trace=None, **kwargs):
         self.calls.append({"question": question, "history": history})
         if self.rewrite and trace is not None:
             trace["retrieval_query"], trace["rewrite"] = self.rewrite
@@ -206,7 +206,7 @@ def test_clarification_is_returned_and_saved(fake_agent, conversation_db):
 
     assert body == {
         "answer": CLARIFICATION_MESSAGE, "sources": [], "escalate": False,
-        "reason": "needs_clarification", "conversation_id": conversation_id,
+        "reason": "needs_clarification", "conversation_id": conversation_id, "message_index": 3,
     }
     assert conversation_db.messages(conversation_id)[-1].reason == "needs_clarification"
 

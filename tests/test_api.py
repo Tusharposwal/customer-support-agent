@@ -81,6 +81,7 @@ def test_successful_grounded_answer(fake_agent):
         "escalate": False,
         "reason": "answered",
         "conversation_id": response.json()["conversation_id"],
+        "message_index": 1,
     }
     assert fake_agent.questions == ["How do I reset my password?"]
 
@@ -103,6 +104,7 @@ def test_human_escalation(fake_agent):
         "escalate": True,
         "reason": "insufficient_evidence",
         "conversation_id": response.json()["conversation_id"],
+        "message_index": 1,
     }
 
 
@@ -148,6 +150,7 @@ def test_unexpected_agent_error_is_safe(fake_agent):
         "escalate": True,
         "reason": "server_error",
         "conversation_id": response.json()["conversation_id"],
+        "message_index": 1,
     }
     assert "secret" not in response.text
     assert "Traceback" not in response.text
@@ -157,7 +160,7 @@ def test_unexpected_agent_error_is_safe(fake_agent):
 def test_response_structure(fake_agent):
     body = client.post("/chat", json={"question": "How do I reset my password?"}).json()
 
-    assert set(body) == {"answer", "sources", "escalate", "reason", "conversation_id"}
+    assert set(body) == {"answer", "sources", "escalate", "reason", "conversation_id", "message_index"}
     assert isinstance(body["answer"], str)
     assert isinstance(body["escalate"], bool)
     assert isinstance(body["reason"], str)

@@ -258,6 +258,7 @@ class ConversationStore:
         *,
         retrieval_query: str | None = None,
         create: bool = False,
+        in_transaction=None,
     ) -> int:
         """Save a customer message and the assistant's reply together.
 
@@ -265,6 +266,11 @@ class ConversationStore:
         (the ID must be new). Otherwise it must exist and not have expired, and
         it must have room for both messages. Returns the number of messages
         the conversation now holds.
+
+        `in_transaction(connection, now)`, if given, runs after both messages
+        are inserted and inside the same transaction: if it raises, nothing is
+        saved. (Used to record a pending cancellation with the reply that
+        offers it; see cancellations.py.)
         """
         if not is_valid_id(conversation_id):
             raise ConversationNotFound()
@@ -300,6 +306,8 @@ class ConversationStore:
                     "VALUES (?, 'assistant', ?, ?, ?, ?, ?)",
                     (conversation_id, reply.answer, now, sources, int(bool(reply.escalate)), reply.reason),
                 )
+                if in_transaction is not None:
+                    in_transaction(connection, now)
                 return count + 2
 
             return self._write(connection, exchange)

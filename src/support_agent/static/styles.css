@@ -15,6 +15,9 @@
   --error-bg: #fdecec;
   --error-border: #e5a0a0;
   --error-text: #8a1c1c;
+  --danger: #b42318;
+  --success-border: #6fbf8a;
+  --success-text: #1d6b3a;
   --radius: 14px;
   color-scheme: light;
 }
@@ -37,6 +40,9 @@
     --error-bg: #2f1717;
     --error-border: #7a3434;
     --error-text: #f2b0b0;
+    --danger: #c7372a;
+    --success-border: #2f7a4b;
+    --success-text: #8fdcaa;
     color-scheme: dark;
   }
 }
@@ -200,6 +206,63 @@ button.secondary {
   border: 1px solid var(--border);
 }
 .brand-text { flex: 1; min-width: 0; }
+
+/* Cancellation confirmation (inside the "can be cancelled" reply) */
+.cancellation {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 0.9rem;
+}
+.cancellation p { margin: 0; }
+.cancellation-title { font-weight: 600; }
+.cancellation-expiry { color: var(--muted); font-size: 0.85rem; }
+.cancellation-status:empty { display: none; }
+.cancellation-status { margin-top: 4px; }
+.cancellation-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.cancellation-actions button { height: 36px; padding: 0 14px; font-size: 0.875rem; }
+button.danger { color: #ffffff; background: var(--danger); }
+.cancellation.done { border-color: var(--success-border); }
+.cancellation.done .cancellation-status { color: var(--success-text); font-weight: 600; }
+.cancellation.failed, .cancellation.expired { border-color: var(--error-border); }
+.cancellation.failed .cancellation-status, .cancellation.expired .cancellation-status { color: var(--error-text); }
+.cancellation.kept .cancellation-status, .cancellation.unavailable .cancellation-status { color: var(--muted); }
+
+/* Hand-off status (an internal record; nobody has been assigned) */
+.handoff-status {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--handoff-border);
+  border-radius: 10px;
+  background: var(--handoff-bg);
+  color: var(--handoff-text);
+  font-size: 0.875rem;
+}
+.handoff-status[hidden] { display: none; }
+
+/* Feedback on a reply */
+.feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.feedback-button {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.feedback-button.selected { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 
 /* A short system note in the conversation (e.g. a conversation could not be restored). */
 .notice { margin: 4px 0; text-align: center; color: var(--muted); font-size: 0.85rem; }

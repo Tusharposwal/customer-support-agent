@@ -319,10 +319,12 @@ API come from the **same server (same origin)**, the browser allows the
 1. Ignores empty messages and shows a hint instead.
 2. Shows the customer's message, a loading indicator, and disables the
    input and Send button so a question can't be sent twice.
-3. Sends `POST /chat` with JSON, and gives up after 60 seconds.
+3. Sends `POST /chat` with JSON, and gives up after 60 seconds (90 since
+   Phase 5 Milestone 5: the server's worst case can exceed 60).
 4. Shows the result:
    - `escalate: false` → answer plus "Sources" links;
-   - `escalate: true` → amber "Handed off to a human agent" card;
+   - `escalate: true` → amber "Handed off to a human agent" card (renamed
+     "Needs human help" in Phase 5 Milestone 4: no human is connected);
    - `422` → "Please enter a question of up to 1000 characters";
    - network error, timeout or unreadable response → red error message.
      A `500` still carries the safe hand-off body, so it's shown as a hand-off.
@@ -2182,3 +2184,730 @@ the rewriter itself are not measured (both need live Cohere calls:
   messages cost the same as before.
 - The dataset was written by one person, together with the KB; the numbers
   are probably optimistic and small.
+
+## Demo orders and the refund policy (Phase 5, Milestone 3.1)
+
+The first step towards order tools: data and rules, with no model involved.
+
+### Demo orders (`data/demo_orders.json`, `demo_orders.py`)
+
+- 12 fictional orders. Emails use `example.com` (a domain reserved for
+  examples) and the carriers are invented. The loader rejects any other
+  email domain, so real addresses can't slip in.
+- **Relative dates.** `ordered_days_ago` and `delivered_days_ago` are stored
+  instead of calendar dates, so "delivered 7 days ago" stays a 7-day boundary
+  case forever. Calendar dates are computed only for display.
+- **Strict validation.** Unknown or missing fields, bad IDs, unknown
+  categories, negative or fractional days, duplicate IDs and inconsistent
+  statuses are all rejected. For example, only a delivered order may have a
+  delivery age, and a processing order may not have a carrier.
+- **Lookup needs ID and email.** `OrderBook.find(order_id, email)` returns the
+  order or `None`; there is no lookup by ID alone. Unknown IDs, wrong emails
+  and malformed input give the same `None`, and the email comparison runs
+  even for unknown IDs, so neither the answer nor the timing reveals whether
+  an order exists.
+
+| Order | Status | Scenario |
+| --- | --- | --- |
+| ORD-1001, 1002 | processing | can still be cancelled (KB-024) |
+| ORD-1003, 1004 | shipped | in transit / out for delivery (US, Canada) |
+| ORD-1005 | delivered | 10 days old: ordinary return |
+| ORD-1006 / 1007 | delivered | exactly 30 / 31 days old: last day / needs review |
+| ORD-1008 / 1009 | delivered | delivered exactly 7 / 8 days ago: damage-report boundary |
+| ORD-1010 | delivered | one item of each excluded kind, plus an unopened beauty item |
+| ORD-1011 | cancelled | refunded automatically |
+| ORD-1012 | delivered | 50 days old, includes a final-sale item |
+
+### Refund policy (`refund_policy.py`)
+
+Only rules already in the KB, applied in this order:
+
+1. Cancelled → `not_applicable` (refunded automatically, KB-024).
+   Processing → `not_applicable` (cancel instead, KB-024).
+   Shipped → `not_applicable` (return after delivery, KB-024/KB-015).
+2. A problem (damaged, defective, wrong or missing item) reported within 7
+   days of delivery → `eligible` (KB-028). This covers excluded items too
+   (KB-016).
+3. Reported later:
+   - an excluded item → `not_eligible` (KB-016);
+   - a missing item → `needs_review` (the KB doesn't say what happens);
+   - a damaged, defective or wrong item → treated as an ordinary return with
+     free return shipping (KB-015).
+4. An ordinary return of an excluded item (gift card, digital download,
+   personalized or engraved, opened personal care or beauty, final sale) →
+   `not_eligible` (KB-016, and KB-002 for gift cards and downloads).
+5. Within 30 days of the order date → `eligible`, with the KB-015 condition
+   (unused, original packaging, tags). Day 30 is in, day 31 is out.
+   Later → `needs_review` (KB-002, KB-015).
+
+Each decision carries a stable rule name and the article IDs, so a later
+answer can cite the policy. The functions take no clock and use no
+randomness or network: the same order always gets the same decision.
+
+**Keeping code and KB in step.** Tests extract "within N days of purchase"
+and "within N days of delivery" from the articles and compare them with the
+constants. They also check that every exclusion phrase appears in KB-016,
+and that KB-016 lists nothing the code ignores. Editing either side alone
+fails the tests.
+
+**Choices worth knowing.** `not_applicable` is a fourth decision, beyond
+eligible / not eligible / needs review, because KB-024 makes refunds for
+undelivered and cancelled orders a matter of cancelling, not returning.
+After 7 days, a missing item goes to review because no article covers it.
+
+## The tool registry (Phase 5, Milestone 3.2)
+
+### What a tool registry is
+
+"Tool calling" lets the model ask the app to run a function, such as
+"look up order ORD-1003", instead of guessing. The model never runs
+anything itself: it sends a request (a tool name plus JSON arguments), the
+app decides whether and how to run it, and sends back a result.
+`tools.py` is the list of functions the app is willing to run, the
+*registry*: one `ToolSpec` per tool, kept in the `REGISTRY` dict.
+
+### Definition versus execution
+
+- **Definition** is what the model is *shown*: name, description and a JSON
+  Schema of the arguments (`definitions()`, later sent to Cohere as
+  `tools=`). It only steers the model.
+- **Execution** is what the app *does* when asked (`execute`,
+  `execute_all`). This is where the rules are enforced. Everything is
+  checked again here, even though the schema already describes it, because
+  a model can ignore a schema.
+
+Both are built from the same `ToolSpec`, so what the model is told and what
+the code accepts can't drift apart. A test also validates every definition
+against the installed Cohere SDK's own `ToolV2` model, without sending
+anything.
+
+| Tool | Arguments | What it returns |
+| --- | --- | --- |
+| `get_order_status` | `order_id`, `email` | status, dates, shipping, items |
+| `check_refund_eligibility` | `order_id`, `email`, optional `reason`, `item_name` | exactly what `refund_policy.check_refund` decided, per item |
+| `request_order_cancellation` | `order_id`, `email` | `confirmation_required` or `not_cancellable`; never cancels |
+
+### The checks every call goes through
+
+1. **Known tool?** Otherwise `unknown_tool`, and nothing runs.
+2. **Valid arguments?** They must be a JSON object of at most 2,000
+   characters, with no duplicate or unknown keys and all required keys.
+   `order_id` must look like `ORD-1234`, `email` like an address, `reason`
+   one of the five policy reasons, and `item_name` 1-100 characters.
+   Otherwise `invalid_arguments`, which lists the field *names* but never
+   the values the model sent.
+3. **Grounding.** The order number and the email must both appear in the
+   **customer's own messages** in this conversation, as whole words.
+   `ToolContext.for_question` keeps only customer messages, so an order
+   number that appears only in an assistant reply doesn't count. This stops
+   the model inventing an order, or being talked into looking up someone
+   else's. Otherwise `details_not_provided`.
+4. **Ownership.** The order is found only with its ID *and* email
+   (`OrderBook.find`). A wrong email and an unknown order both give the same
+   `not_found`, with no order data.
+5. **Run.** Any unexpected error becomes a plain `error`. The log shows the
+   tool name, the status and the error type, never arguments, order
+   numbers, emails or error text.
+
+At most 3 calls run per question. A 4th or later call gets
+`limit_exceeded`, so every call ID still gets a result, as Cohere expects.
+Results never contain the customer's email.
+
+### Why cancellation is still read-only
+
+`request_order_cancellation` answers one question: can this order be
+cancelled right now? Only Processing orders can (KB-024). It returns
+`confirmation_required` with the items, and explicitly says the order has
+**not** been cancelled. Nothing in the registry or in `demo_orders` can
+change an order: orders are frozen dataclasses, and no write function
+exists. A test checks both.
+
+The actual cancellation will come later, through a separate endpoint that
+the customer triggers with a button. That endpoint will re-check everything
+at that moment, and no model will be involved. A model's text can be
+manipulated, so it must never be what changes an order.
+
+### Not done yet
+
+Nothing calls the registry yet: the Cohere tool-call loop (Milestone 3.3)
+will send `definitions()` and turn `message.tool_calls` into `ToolCall`s.
+Results are already shaped for it: `ToolResult.as_document()` gives the
+`{"id", "data"}` document a Cohere tool message carries, with text values.
+The document IDs (`tool-1-get_order_status`) can't clash with article IDs
+(`KB-001`). Whether Cohere cites these documents as expected can only be
+confirmed with a live request.
+
+## Tool calling in the answer pipeline (Phase 5, Milestone 3.3)
+
+### When tools are offered
+
+Only when the customer's own messages in the conversation contain an order
+number (`ORD-1234`, as a whole word). The registry refuses any call whose
+order number the customer didn't write, so offering tools without one could
+only fail. Every other question, including every evaluation question so far,
+sends exactly the same request as before, with the same prompt and no `tools`.
+
+### The cycle (`answer.generate_answer_with_tools`)
+
+```
+1. chat(system + user, documents=KB articles, tools=registry definitions)
+   ├─ COMPLETE   → checked like any answer (articles only)            [1 call]
+   └─ TOOL_CALL  → check the calls, run them ONCE (tools.execute_all)
+        ├─ unknown tool / invalid arguments → hand-off invalid_tool_call
+        ├─ a tool error                     → hand-off tool_error
+        ├─ order number or email missing    → fixed "please send your order
+        │                                     number and email"           [1 call]
+        ├─ order can be cancelled           → fixed "can be cancelled; it has
+        │                                     NOT been cancelled" reply   [1 call]
+        └─ otherwise:
+2. chat(system + user
+        + the model's own tool-call message, unchanged (tool plan, call IDs)
+        + one tool message per call ID (the result as a document),
+        documents=same KB articles, tools=same, tool_choice="NONE")   [2 calls]
+   → must be a finished answer citing supplied articles and/or this
+     question's tool results
+```
+
+- **Never twice.** Tools run in exactly one place, once per question. If the
+  second chat request fails and is retried, the identical request is sent
+  again; the tools don't run again. If the final response asks for more
+  tools, it is rejected and nothing runs.
+- **Server-written replies.** The "please send your order number and email"
+  request and the "can be cancelled" reply are fixed text, not model text.
+  The second one is about a state change: a model could word it as "I've
+  cancelled your order", which would be false.
+- **Malformed responses** are hand-offs and run nothing: `TOOL_CALL` with no
+  calls, a call without an ID, duplicate IDs, an unexpected finish reason, or
+  an unfinished final answer.
+
+### Citations
+
+Tool results travel as tool messages; the KB articles stay in `documents`.
+The final answer may cite:
+
+- a **supplied article**: the same rule as before;
+- a **tool result from this question**: matched by our document ID
+  (`tool-1-get_order_status`), the call ID, or `<call ID>:<n>`. Which form
+  Cohere uses is confirmed only by a live call, so all three are accepted.
+
+Anything else is `invalid_citations`, including a call ID from an earlier
+question. A tool result appears in `sources` as "Your order ORD-1003 (order
+status)" with an empty `url`; the page shows it as text, not a link.
+
+The agent's final check (`_checked_result`) receives this question's tool
+results. It accepts a tool source only if it was built from one of them. It
+accepts the two server-written replies only in their exact form, and only
+when the matching tool result exists. A generator can't produce them on its
+own.
+
+### Time budget
+
+Both chat calls share one budget, `COHERE_CHAT_TIMEOUT_SECONDS` (25 s). The
+first call gets all of it; the second gets what is left. If less than 5
+seconds are left, the question is handed off (`llm_error`) instead of making
+a second call. So a question with tools takes no longer, in the worst case,
+than one without. *Correction (Milestone 5):* that worst case is not "about
+48 s" but about 58 s (rewrite 8 + two embeddings 10 each on a cold cache +
+rerank 5 + chat 25), and more on a slow network, because each budget limits
+each network phase separately. The page now waits 90 s. Retries follow
+`cohere_calls` as before.
+
+### Still to verify live
+
+Not tested against the real API (no calls were allowed):
+
+- that Cohere accepts this exact message shape;
+- the form of tool citation IDs;
+- how `documents` and `tools` behave together.
+
+One approved smoke test should come before relying on it.
+
+## Persistent cancellation with explicit confirmation (Phase 5, Milestone 3.4)
+
+### The rule
+
+The model can *propose* a cancellation; only the customer can *perform* one,
+and only by a separate request that no model is involved in. Model output can
+be steered by whatever text reaches it (the customer, a pasted message, a
+document), so it must never be what changes an order. In particular, typing
+"yes" into the chat is just another question: it can at most produce another
+proposal.
+
+### The flow
+
+```
+/chat  "cancel ORD-1001, email ..."
+  model -> request_order_cancellation (read-only) -> confirmation_required
+  agent -> fixed "can be cancelled; NOT cancelled yet" reply
+           trace["cancellable_order_id"] = "ORD-1001"
+  api   -> saves the question, the reply AND a pending action
+           in ONE transaction (add_exchange(..., in_transaction=...))
+        -> response.pending_cancellation = {action_id, order_id, expires_at}
+
+POST /cancellations/confirm {conversation_id, action_id}     (no model)
+  BEGIN IMMEDIATE
+    conversation live?  action exists in THIS conversation?   else 404
+    already confirmed?  -> return the same result again        (200, idempotent)
+    expired?                                                   else 410
+    order still "processing" and no cancellation recorded?     else 409
+    INSERT order_cancellations (order_id is the PRIMARY KEY)
+    mark the action confirmed
+  COMMIT
+```
+
+### Security decisions
+
+- **Unguessable, scoped IDs.** `secrets.token_hex(16)` (128 bits), like
+  conversation IDs. An action works only together with its conversation's
+  ID, so a leaked action ID alone is useless. An unknown action and another
+  conversation's action get the *same* 404, so the endpoint can't be used to
+  test which IDs exist.
+- **Short life.** 15 minutes (`ACTION_TTL_SECONDS`). A stale proposal can't
+  be confirmed days later, when the customer may no longer want it.
+- **Hidden from the model.** The action is created *after* the agent has
+  finished, and its ID goes only into the HTTP response. It is not in the
+  saved reply text, so later turns (whose history feeds the rewriter and the
+  prompts) can't contain it either. Tests send a whole conversation through
+  the real agent with a recording fake client and check every request.
+- **Hashed at rest.** The database stores SHA-256 of the action ID, so a copy
+  of the database file can't be used to confirm anything. (Conversation IDs
+  are still stored as they are; that predates this milestone.)
+- **IDs never in URLs or logs.** Both IDs travel in the POST body, so access
+  logs can't record them. The confirm log line carries only the outcome and
+  the conversation's one-way hash: no action ID and no order number.
+- **Re-checked at the moment it matters.** A proposal is a snapshot. At
+  confirmation the order's current status is checked again, inside the same
+  transaction that records the cancellation.
+- **Exactly once.** `BEGIN IMMEDIATE` makes concurrent confirmations queue
+  instead of racing. The second one sees the first one's result. Even if that
+  logic were wrong, `order_cancellations.order_id` is a primary key, so a
+  second row for the same order can't be written. Tests fire 8 simultaneous
+  confirmations of one action, and 6 of different actions for one order,
+  each on its own connection.
+- **Idempotent.** A repeated confirmation (a double click, a retried
+  request) returns the original result with `already_confirmed: true`. It
+  doesn't consult the expiry or the order again, because the decision was
+  already made.
+- **All or nothing.** The "can be cancelled" reply and its action are saved
+  in one transaction: the customer never sees an offer that has no action,
+  and no action exists for an offer that wasn't saved.
+
+### The order data stays read-only
+
+`data/demo_orders.json` is still never written. A confirmed cancellation is a
+row in SQLite, and `ToolContext.is_cancelled` makes the tools show that
+processing order as `cancelled`. So `get_order_status` reports it,
+`request_order_cancellation` says `not_cancellable` and the refund check says
+`not_applicable`. If that lookup fails, the tool returns `error` and the
+question is handed off: it never guesses "not cancelled".
+
+`OrderBook.status(order_id)` was added for the confirmation's server-side
+re-check (the customer already proved ownership when the action was made).
+The tools still look orders up only with `find(order_id, email)`.
+
+The tool prompt changed in one sentence. "Never say an order has been
+cancelled" would now contradict a tool result. It became: never say *you*
+cancelled an order or that one *will be* cancelled, and call it cancelled only
+when a tool result says so.
+
+### Storage and retention
+
+Two tables in the conversation database: `cancellation_actions` (deleted
+with their conversation, 30 days after its last message) and
+`order_cancellations` (order state: kept). On Render's free plan both are
+lost on every restart, like the conversations, and the demo orders "come
+back".
+
+### Limitations
+
+- *(Resolved in 3.5.)* **No page support yet** (Milestone 3.5). The page ignores
+  `pending_cancellation`, and the fixed reply still points the customer to
+  the Orders page. Its wording should change together with the button.
+- *(Resolved in 3.5.)* **Not visible after a reload.** `GET /conversations/{id}` doesn't return
+  pending actions or confirmations, and a confirmation adds no message to
+  the conversation (messages are saved in customer/assistant pairs). 3.5
+  needs to decide how the page shows them.
+- **Free text is not checked.** The model can still *write* "your order has
+  been cancelled" in an ordinary answer. That changes nothing (a test checks
+  this), but the gate only blocks altered wording of the fixed reply, not
+  every false claim.
+- **One proposal per offer.** Asking again makes a new action and leaves the
+  earlier one valid until it expires. Exactly-once still holds per order.
+- The confirm endpoint is not rate limited. It makes no Cohere call, and a
+  128-bit ID can't be guessed.
+- Live Cohere behaviour of the tool cycle is still unverified (Milestone 3.3
+  smoke test: 401).
+
+## The cancellation confirmation on the page (Phase 5, Milestone 3.5)
+
+### What the customer sees
+
+The "can be cancelled" reply now says: the order can be cancelled, it has
+**not** been cancelled yet, and cancelling needs their confirmation (choose
+Confirm cancellation, or Keep order). It no longer sends them to the Orders
+page, and it never asks them to type "yes". Under it, a box shows "Cancel
+order ORD-1001?", the expiry time (local time) and the two buttons.
+
+| What happened | The box shows | Buttons |
+| --- | --- | --- |
+| Confirm, `200` | "Order ORD-1001 has been cancelled." | removed |
+| Confirm, `200` with `already_confirmed` | "...was already cancelled. Nothing else was changed." | removed |
+| Confirm, `410` | the server's "expired, nothing was cancelled" | removed |
+| Confirm, `409` / `404` | the server's message (status changed / not found) | removed |
+| Confirm, `503`, network error, timeout, unreadable `200` | "...has not been cancelled. Please try again." | enabled again |
+| Keep order | "You chose to keep order... Nothing was cancelled." | removed |
+
+**Duplicate clicks.** A flag set *before* the request starts (not after it
+returns) makes every further click a no-op, and both buttons are disabled
+while it runs. A test clicks three times while the request hangs and checks
+that exactly one request was sent. When the guard was deliberately removed,
+that test failed. A retry after a failure is a new, deliberate click, and the
+server is idempotent anyway.
+
+### Where the action ID lives
+
+Only in the HTTP response, then the tab's `sessionStorage`
+(`support.cancellationActions`, `{"ORD-1001|<expires_at>": "<action ID>"}`),
+then the body of the confirm request. It is never rendered and never part of
+a `/chat` request; a test checks every `/chat` body. It is forgotten after a
+final outcome, on "New conversation", and when the conversation is gone.
+"Keep order" replaces it with `"kept"`, so a reload doesn't bring the buttons
+back.
+
+### Restoring after a reload: the smallest change that works
+
+Without a change, a reload would show the offer's text with no buttons and
+no outcome. Both are misleading: the text says "choose Confirm cancellation
+below", and a confirmed cancellation would be invisible.
+
+The server can't give the action ID back, because it stores only its hash,
+and that is deliberate. So `GET /conversations/{id}` now adds `cancellation`
+to each "can be cancelled" reply: `order_id`, `status`
+(`pending` / `cancelled` / `expired`), `expires_at` and `cancelled_at`. It
+never includes the action ID or its hash. The page joins this with the ID it
+kept by (order, expiry). So:
+
+- **pending, ID in this tab:** the buttons are back.
+- **pending, ID unknown** (another tab, storage blocked): "can't be confirmed
+  from this page any more; the order has not been cancelled; ask again".
+  Never a button that is bound to fail.
+- **pending, kept:** the customer's choice.
+- **cancelled / expired:** the outcome. An offer counts as cancelled when its
+  order was cancelled by *any* offer, so an older offer for the same order
+  never looks confirmable.
+
+There was no schema change. The reply and its action are saved in one
+transaction with the same timestamp, so `created_at` matches them exactly
+(`CancellationStore.offers`). A confirmation still adds no chat message: the
+restored status line carries the outcome, which keeps messages in
+customer/assistant pairs and the message cap unchanged.
+
+### Remaining limitations
+
+- The expiry is shown, but the page doesn't count down. An offer left open
+  past its expiry still shows its buttons until clicked, and then the server
+  answers "expired".
+- An offer is confirmable only in the tab that received it. That follows
+  from storing only the hash. Asking again makes a fresh offer.
+- The model can still write a false "cancelled" in free text (see 3.4).
+
+## Tool-selection evaluation (Phase 5, Milestone 3.6)
+
+### The trap this avoids
+
+With a fake Cohere client, *I* write what the "model" decides. Scoring those
+decisions as "tool-selection accuracy" would be circular: it would always be
+100% and mean nothing. So the evaluation keeps three questions apart and
+labels each one:
+
+| Measurement | What decides | What it proves |
+| --- | --- | --- |
+| 1. Offer rule | production code (`agent.mentions_order_number`) | when tools can be used at all; real |
+| 2. Keyword baseline | eval-only regex rules | how far simple rules get on this dataset; a reference, not the model |
+| 3. Orchestration | hand-scripted decisions, then the **real** agent, tool registry and checks | what the pipeline does with any decision, good or bad |
+
+A live model's choices can be scored later with the same metrics:
+`--selections FILE`, where the file maps each case ID to a list of tool
+names. Nothing records them yet; that needs an approved live run.
+
+### The dataset (`evals/tool_selection_eval.json`)
+
+48 cases, fictional demo orders only (validation rejects any non-demo order
+number or non-`example.com` email). Each case has:
+
+- `expected_tools`: the ideal selection (order ignored), plus `acceptable`
+  alternatives for honestly ambiguous cases. For example, "I want my money
+  back for ORD-1001" (still processing) ideally gets a cancellation, but a
+  refund check is also reasonable.
+- `script`: one model decision (tool calls with arguments, or a text
+  answer), and `scenario` says whether it is the ideal one (`faithful`) or a
+  deliberately wrong one (`misbehaving`): an invented email, a swapped order
+  number, a tool that doesn't exist, broken JSON, an extra argument, four
+  calls, duplicate call IDs, or a tool call with no calls.
+- `expected_outcome`: whether tools are offered, the final reason, and the
+  status of every tool that runs.
+
+Missing details are labelled "no tool" (the tool descriptions say not to
+call without both details), with the tool as an acceptable alternative,
+because the server makes calling safe too.
+
+### Metrics
+
+Each selection goes into one bucket: correct tool, correct no-tool,
+incorrect tool (wrong, partial or extra), missing tool (expected one, chose
+none) or unnecessary tool (expected none, chose one). The confusion matrix
+is drawn against the *ideal* label, so an acceptable alternative appears off
+the diagonal while still counting as correct.
+
+For the orchestration:
+
+- **outcome reproduced**: the pipeline did exactly what was expected;
+- **invalid calls handled safely**: a hand-off (`invalid_tool_call`,
+  `malformed_response`), or the extra call refused (`limit_exceeded`);
+- **missing details handled safely**: a safe end, and no order data;
+- **safety violations**: an independent re-check that no status revealing
+  order data (`ok`, `confirmation_required`, `not_cancellable`,
+  `unknown_item`) occurred unless the customer wrote both an order number
+  and an email.
+
+### Results (2026-11-21)
+
+- Offer rule: 31 offered and needed, 9 offered but not needed, 0 needed but
+  not offered, 8 correctly not offered.
+- Baseline: 47/48. Its one miss: "The Glass Vase in ORD-1008 arrived
+  broken" also triggers the status rule ("arrived"). Treat the 97.9% with
+  suspicion: I wrote the rules and the cases, so they share my phrasing.
+  Questions written by other people would score lower.
+- Orchestration: 48/48 as expected (37 faithful, 11 misbehaving). 7/7
+  invalid calls and 7/7 missing-detail cases were handled safely. 0 safety
+  violations. Every second request carried `tool_choice="NONE"`.
+
+### Findings (reported, not "fixed" to raise the score)
+
+1. **An unrelated question with an order number can lose its KB answer**
+   (TS-023: "I placed ORD-1005 last week. How do I change my password?").
+   Keyword retrieval finds nothing, because the order-number tokens lower the
+   overlap score. Because tools are offered, the agent skips its
+   `no_articles` check (3.3), so the uncited answer is handed off as
+   `no_citations`. That is safe, but unhelpful. Production uses hybrid
+   retrieval, which this offline evaluation can't run, so whether it happens
+   live is unknown.
+2. **A tool call without the email is a hand-off, not a question** (TS-030).
+   If the model omits the required `email`, the arguments are invalid and the
+   customer is handed off (`invalid_tool_call`). An invented email, by
+   contrast, gets the friendlier "please send your order number and email".
+   Both are safe; the second is better.
+3. **Unnecessary calls are allowed** (TS-027). Nothing stops the model
+   looking up the customer's own order when it doesn't need to. That's
+   harmless (same checks, at most 3 calls), just wasted work.
+
+### What remains unverified (3.6)
+
+- How often a real model picks the right tool. Only a live run can say.
+- How the live API cites tool results (the 3.3 smoke test got 401).
+- The rewriter (follow-up rewriting) is stubbed here; follow-up cases use
+  the question as written for retrieval.
+
+## Human hand-off records and reply feedback (Phase 5, Milestone 4)
+
+### What existed, and what was reused
+
+- **Escalation** already existed everywhere: every failure becomes a
+  `SupportAnswer` with `escalate=True` and a reason. It is shown with the
+  fixed `HANDOFF_MESSAGE` and saved as an assistant message with
+  `escalate` and `reason` columns. That was **not** changed. What was missing
+  was a record that the *conversation* needs a person.
+- **Storage**: the conversation database, one connection per operation,
+  `BEGIN IMMEDIATE`. The new tables reuse `ConversationStore`'s connections
+  and error handling, like the cancellation tables. They hang off
+  `conversations` with `ON DELETE CASCADE`, so retention needed no change.
+- **Atomic side records**: `add_exchange(..., in_transaction=...)` (built for
+  cancellations in 3.4) now also saves the hand-off record with the escalated
+  reply.
+
+### Honesty: no human is connected
+
+The old hand-off message said *"I've passed your question to our support
+team, and a team member will follow up with you"*, and the page said
+*"Handed off to a human agent"*. Nothing passed anything to anyone, so both
+were false promises. Now:
+
+- message: *"I'm not able to answer this confidently from our help articles,
+  so I've recorded your question as needing help from our support team."*
+  This is true: the record exists, because it is saved in the same
+  transaction as the reply;
+- card label: **Needs human help**;
+- status line: *"This conversation needs help from our support team and has
+  been recorded for them. No one has been assigned to it yet."*
+
+Tests reject "follow up", "team member", "assigned to you", "will contact"
+and the old label. The escalation *behaviour* (`escalate`, `reason`, no
+sources, the hand-off for every failure) is unchanged; only the wording is.
+
+### The hand-off record (`handoffs.py`)
+
+| Column | Meaning |
+| --- | --- |
+| `status` | `open` (nothing closes records: there is no support tool) |
+| `category` | `no_answer` / `service_problem` / `other` (DB `CHECK`) |
+| `first_reason`, `last_reason` | validated against the list of reasons the app uses; anything else becomes `other` |
+| `escalations` | how many escalated replies the conversation has had |
+| `first_message_id` | the reply that opened it |
+
+- **No duplicates.** An escalation updates the open record when one exists.
+  Because this happens inside `BEGIN IMMEDIATE`, concurrent escalations queue
+  up; a test runs six at once and gets one record with 7 escalations. A
+  partial unique index (`WHERE status = 'open'`) makes a second open record
+  impossible even if the code were wrong.
+- **Safe reasons only.** A reason is stored only if it is one of the app's own
+  reason codes. A test scans the source for every reason the app escalates
+  with and checks that each is known.
+- **Exposure.** `GET /conversations/{id}` returns status, category and
+  times, and nothing internal. `/chat` doesn't need a new field: an
+  `escalate: true` reply is only ever saved together with its record.
+
+### Feedback (`feedback.py`, `POST /feedback`)
+
+- **Which reply.** The reply's *position in its conversation*
+  (`message_index`), not its database row ID. Row IDs are global, so they
+  would reveal how many messages everybody has sent, and anyone could guess
+  them. A position means something only inside the conversation the caller
+  already holds the ID for.
+- **Ownership.** The server looks up position N *in that conversation* and
+  requires an assistant reply there. A customer message, a position past the
+  end and another conversation's message all fail (`404`). An unknown or
+  expired conversation is `404` too.
+- **Duplicates.** One row per reply (the reply's message ID is the primary
+  key). The same rating again writes nothing (`changed: false`); a different
+  rating replaces it, so a misclick can be corrected. The page ignores clicks
+  while a request runs, and doesn't resend the rating already saved.
+- **No personal data.** Only `positive` / `negative`. The request model
+  forbids extra fields, so a comment or an email gets a `422` and is never
+  stored. Logs carry the outcome, the rating and the conversation's one-way
+  hash.
+
+### Contract change
+
+`/chat` responses gained `message_index`, and five tests that compare the
+entire response body gained that one key. `GET /conversations/{id}` gained
+`message_index` and `feedback` on each message and `handoff` at the top.
+The logging format, the cancellation flow and all other fields are
+unchanged.
+
+### Limitations
+
+- No human-support system. Records are never read, assigned or closed by
+  anyone; that is the integration a real deployment would add.
+- The customer can't ask for a human directly ("talk to a person"); only the
+  agent's own escalations open records.
+- Feedback has no free-text reason (on purpose), so a "No" says *that* a
+  reply was unhelpful, not *why*.
+- `/feedback` isn't rate limited. It is bounded by the conversation's
+  replies (at most 20) and makes no Cohere call.
+- Everything is lost on Render free-plan restarts, like conversations.
+
+## Final reliability review (Phase 5, Milestone 5)
+
+### What was inspected
+
+Every boundary where two parts of the agent meet. Each was checked by
+reading the code and the existing tests, and then by new end-to-end tests
+that drive the real app over HTTP. Those tests use the real agent, the real
+hybrid retrieval (with fake embeddings), the real rewriter, the real tools,
+order checks and SQLite. Only the Cohere chat client is scripted, and
+sockets are blocked.
+
+| Area | What was checked |
+| --- | --- |
+| Hybrid retrieval to answer | citations must be supplied articles; empty or failed retrieval; reranking may only remove or re-order |
+| Memory to rewriting | rewrites used for retrieval only; invented numbers rejected; failures fall back to the message as written |
+| Tools to ownership | grounding in customer messages, lookup by ID and email, one round, at most 3 calls, results without email |
+| Cancellation to SQLite | atomic offer, hashed ID, exactly once, idempotent, restoration |
+| Hand-off records | atomic with the reply, one open record, validated reasons |
+| Feedback | position-based, ownership, one per reply |
+| Startup, shutdown, timeouts, retries, errors | budgets, retry rules, 503 before any Cohere call, safe 500s, log contents |
+
+### Genuine issues found and fixed
+
+1. **A failure outside `/chat`'s own error handling claimed a record that
+   didn't exist.** The middleware's last-resort 500 body reused
+   `HANDOFF_MESSAGE`, which since Milestone 4 says *"I've recorded your
+   question..."*. In that path nothing is saved: no conversation, no
+   hand-off record. The page also showed the "recorded for our support team"
+   status line. The body now says *"Something went wrong on our side, so
+   your message was not saved..."* (`UNSAVED_ERROR_MESSAGE`). The page treats
+   a 5xx without `conversation_id` and `message_index` as unsaved: an error,
+   with the question kept in the box and no status line. A 500 that *was*
+   saved (the agent crashed inside the endpoint) still shows as a recorded
+   hand-off.
+2. **A tool call without the email handed the customer off and opened a
+   misleading hand-off record.** When the customer gave an order number but
+   no email, a model that called the tool without `email` got
+   `invalid_arguments`. The customer then saw the hand-off message, and a
+   `service_problem` record was opened. Now a well-formed call that only
+   *leaves out* `order_id` and/or `email` is `details_not_provided`, so the
+   customer is asked for them and nothing is looked up. Anything else wrong
+   (bad values, extra fields) is still `invalid_arguments`. The 3.6
+   evaluation recorded this as TS-030, and its expectation was updated; the
+   3.6 results file keeps the earlier outcome.
+3. **The page could give up before the server finished.** The documented
+   worst case (about 48 s) was wrong. A follow-up just after a restart can
+   need rewrite 8 s + two embedding calls (the knowledge base on a cold
+   cache, then the question) 10 s each + rerank 5 s if enabled + chat 25 s =
+   58 s. Each budget is also passed to the HTTP client as a timeout *per
+   network phase*, so it isn't a hard wall-clock cap. The page aborted at
+   60 s, so a customer could see "took too long" for a reply that the server
+   then saved, and a hand-off record they were never told about. The page
+   now waits 90 s.
+
+### Checked and found sound (no change)
+
+- No order data without both details: re-checked independently by the
+  tool-selection evaluation, with 0 violations, and end to end.
+- Exactly-once cancellation and single open hand-off under concurrency: 8
+  simultaneous confirmations, 6 simultaneous escalations and 8 simultaneous
+  ratings each give one row.
+- The conversation cap holds under concurrent follow-ups: the check happens
+  inside the write transaction, so 6 at once with room for 2 gives 2 saved
+  and the rest `409`.
+- Database down: `503` *before* any Cohere call. A save failure shows and
+  records nothing.
+- Cohere timeout, 503 (retried once), malformed and truncated responses: a
+  recorded hand-off whose body contains no provider text.
+- No action ID ever reaches the model or the rewriter. Logs carry hashes,
+  categories and statuses only.
+
+### Known limitations (documented, not changed)
+
+- `GET /conversations/{id}` reads messages, offers, the hand-off and ratings
+  in four separate reads, not one snapshot. A write landing in between can
+  make the page show, briefly, a status for a reply it doesn't list yet. The
+  next load is consistent.
+- When tools are offered and retrieval finds nothing, the agent skips its
+  `no_articles` check, so an unrelated question with an order number can end
+  as a `no_citations` hand-off (3.6, TS-023). This is safe; seen only with
+  keyword retrieval offline.
+- Ownership is "knows the order number and its email", not real customer
+  authentication. That fits fictional demo data, but not a real store.
+- The model can still write a false claim (such as "cancelled") in an
+  ordinary answer. The gate checks citations and the fixed replies, not
+  every sentence.
+- The rewriter's clarification gate runs before tools. A follow-up that only
+  supplies an email could be judged "unclear" by a live model. This is
+  untested live.
+- Timeouts are per network phase (see fix 3). The rate limiter is in memory
+  and per process. On Render's free plan, all SQLite data is lost on
+  restart.
+- The command-line `python -m support_agent.agent` prints the standard
+  hand-off message although it saves nothing. It is a developer tool, not
+  the customer page.
+
+### Verified offline vs. unverified live
+
+| Verified offline (tests, fakes, recorded data) | Still unverified live |
+| --- | --- |
+| Every pipeline branch, failure path and safety check; the end-to-end scenarios above | Whether Cohere accepts the tool-call message shape, and how it cites tool results (smoke test: 401 twice) |
+| Keyword retrieval on KB v2: 38/51 expected article in top 3 | Hybrid retrieval and answer quality on KB v2 (need embed and chat calls) |
+| Rewriter outputs from the one approved live run (2026-11-20): 32 requests, 0 failures, retrieval 24/27 | Rewriter behaviour since then; clarification recall was only 2/5 |
+| Tool orchestration with 48 scripted decisions: all safe | Real tool-selection accuracy (`--selections` is ready for a recorded run) |
+| SQLite atomicity, idempotency and concurrency | Behaviour on a real multi-instance deployment (SQLite is local to one instance) |

@@ -145,7 +145,7 @@ def test_first_request_reuses_the_startup_clients(fake_sdk, semantic_kb):
     assert response.status_code == 200
     assert response.json() == {
         "answer": HANDOFF_MESSAGE, "sources": [], "escalate": True, "reason": "llm_error",
-        "conversation_id": response.json()["conversation_id"],
+        "conversation_id": response.json()["conversation_id"], "message_index": 1,
     }
     assert fake_sdk == created_at_startup  # no client created by the request
     assert len(semantic_kb.client.calls) == 2  # knowledge base + question, embedded on first use

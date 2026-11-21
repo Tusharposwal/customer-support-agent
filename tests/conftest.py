@@ -52,19 +52,30 @@ def no_real_retry_waits(monkeypatch):
 def conversation_db(tmp_path):
     """Every test gets its own temporary conversation database: startup (the
     lifespan) opens it through CONVERSATION_DB_PATH, and tests that call
-    /chat without running startup find it already in api.conversations.
+    /chat without running startup find it already in api.conversations (and
+    its cancellation, hand-off and feedback tables in api.cancellation_store,
+    api.handoff_store and api.feedback_store).
     No test ever touches the real var/ folder. Returns the store.
 
     Uses its own MonkeyPatch (not the test's), so its undo order can't
     interfere with patches the test itself makes."""
-    from support_agent import api, conversation_store
+    from support_agent import api, cancellations, conversation_store, feedback, handoffs
 
     path = tmp_path / "conversations.sqlite3"
     store = conversation_store.ConversationStore(path)
     store.initialize()
+    actions = cancellations.CancellationStore(store)
+    actions.initialize()
+    handoff_records = handoffs.HandoffStore(store)
+    handoff_records.initialize()
+    ratings = feedback.FeedbackStore(store)
+    ratings.initialize()
     with pytest.MonkeyPatch.context() as patch:
         patch.setenv(conversation_store.DB_PATH_ENV, str(path))
         patch.setattr(api, "conversations", store)
+        patch.setattr(api, "cancellation_store", actions)
+        patch.setattr(api, "handoff_store", handoff_records)
+        patch.setattr(api, "feedback_store", ratings)
         yield store
 
 

@@ -3,7 +3,9 @@
 Runs tests/js/app_smoke.js with Node.js: a small fake DOM that fails on any
 innerHTML-style insertion, and a fake fetch (no server, no network). Covers
 restoring a conversation (with HTML-looking text shown as text), sending the
-conversation ID, 404/409/503 handling, and "New conversation". Skipped when
+conversation ID, 404/409/503 handling, "New conversation", and the
+cancellation confirmation (display, confirm, keep, expired, already
+confirmed, failures, duplicate clicks, and restoring after a reload). Skipped when
 Node.js is not installed; nothing is downloaded or installed.
 """
 

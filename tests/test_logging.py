@@ -402,7 +402,9 @@ def test_exception_outside_the_agent_still_gets_a_safe_response_and_one_log(capl
     response = post(headers={"X-Request-ID": "broken-1"})
 
     assert response.status_code == 500
-    assert response.json() == {"answer": HANDOFF_MESSAGE, "sources": [], "escalate": True, "reason": "server_error"}
+    # Milestone 5: nothing was saved here, so the body doesn't claim the
+    # question was recorded (HANDOFF_MESSAGE does since Milestone 4).
+    assert response.json() == {"answer": api.UNSAVED_ERROR_MESSAGE, "sources": [], "escalate": True, "reason": "server_error"}
     assert response.headers["X-Request-ID"] == "broken-1"
     record = only_outcome(caplog)
     assert record.levelno == logging.ERROR

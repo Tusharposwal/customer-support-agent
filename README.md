@@ -2,9 +2,11 @@
 
 An AI customer-support agent that answers questions from a small knowledge base
 (`data/kb.json`, 34 fictional support articles in 9 categories) using Cohere,
-cites the articles it used, and hands off to a human when the articles don't
-contain the answer. Conversations are kept, so customers can ask follow-up
-questions ("What if I bought it 35 days ago?").
+cites the articles it used, and flags the conversation as needing human help
+when the articles don't contain the answer (an internal record only: no
+human-support system is connected; see "Human hand-off and feedback").
+Conversations are kept, so customers can ask follow-up questions ("What if I
+bought it 35 days ago?").
 
 ## Setup (Windows, PowerShell)
 
@@ -103,7 +105,9 @@ A single responsive page (plain HTML, CSS and JavaScript in
 - While the agent works, a loading indicator appears and sending is disabled.
 - Answers show their **source articles** as links.
 - When the agent can't answer from the docs, the reply is shown in an amber
-  **"Handed off to a human agent"** card.
+  **"Needs human help"** card, and a status line says the conversation has
+  been recorded for the support team and that nobody has been assigned yet.
+- Each reply has **Was this helpful? Yes / No** buttons.
 - Network or server problems show a red error message.
 - Follow-up questions continue the same conversation. Reloading the tab shows
   the conversation again; **New conversation** starts a fresh one. The
@@ -112,6 +116,56 @@ A single responsive page (plain HTML, CSS and JavaScript in
 
 Each question sent from the page calls Cohere (the same cost as an API call);
 a follow-up question makes one extra, small chat call to rewrite it.
+
+### Human hand-off and feedback
+
+**Hand-off records are internal records only. No human agent, ticketing
+system or support platform is connected: nobody is notified, assigned or
+contacted.** The page and the hand-off message never claim otherwise. The
+message says the question was *recorded* as needing help from the support
+team. A real deployment would have its support tool read these records.
+
+- Every escalated reply (`escalate: true`) is saved together with the
+  conversation's hand-off record, in one SQLite transaction. The record has
+  a validated reason and a category: `no_answer`, `service_problem` or
+  `other`. Any unexpected reason is stored as `other`. A conversation has at
+  most one open record; later escalations update it. A unique index enforces
+  this.
+- `GET /conversations/{id}` returns `handoff`
+  (`status`, `category`, `created_at`, `updated_at`), or `null`.
+- Feedback: **Yes / No** under each reply. Only the rating is stored, with
+  the reply's position in the conversation; no comments or contact details,
+  and extra fields are refused. Clicks are ignored while a rating is being
+  saved. `GET /conversations/{id}` returns each reply's `message_index` and
+  `feedback`, so ratings come back after a reload.
+- `/chat` responses now include `message_index` (the reply's position). No
+  other field changed.
+
+Records and ratings are deleted with their conversation (30 days after its
+last message) and, on Render's free plan, lost on every restart.
+
+### Reliability (Phase 5, Milestone 5)
+
+A final review checked every boundary between the parts of the agent:
+retrieval and answers, memory and rewriting, tools and ownership,
+cancellation, hand-offs, feedback, startup, timeouts and failures. It found
+and fixed three genuine issues:
+
+- A `/chat` failure outside the endpoint's own error handling returned the
+  hand-off message ("I've recorded your question...") although nothing was
+  saved. It now returns an honest "not saved, please try again", and the
+  page keeps the question.
+- A tool call without the customer's email handed the customer off and opened a
+  misleading hand-off record. Now the customer is asked for the details.
+- The page gave up after 60 s, although a request can take longer. Now it
+  waits 90 s.
+
+`tests/test_end_to_end.py` drives the whole app over HTTP: knowledge-base
+answers, hand-offs, follow-ups, orders, refunds, cancellation, feedback,
+database and Cohere failures, and concurrent duplicates. Only the Cohere
+chat client is scripted, and there is no network. What is verified offline
+versus still unverified live (tool calling has never run live, because of a
+401) is listed in `docs/LEARNING_NOTES.md`, "Final reliability review".
 
 ### Conversations and follow-up questions
 
@@ -147,7 +201,9 @@ a follow-up question makes one extra, small chat call to rewrite it.
 | GET | `/health` | **Liveness**: the process is up. Always `200 {"status": "ok"}`. Does not call Cohere. |
 | GET | `/ready` | **Readiness**: `200 {"status": "ready"}` once startup has completed (configuration validated, rate limiter, conversation database and Cohere clients ready), otherwise `503 {"status": "not_ready"}` (still starting, or shutting down). Does not call Cohere or check that Cohere accepts the key. |
 | POST | `/chat` | Answers a customer question; optional `conversation_id` for follow-ups. |
-| GET | `/conversations/{id}` | The messages of a conversation (for restoring the page). `404` if unknown or expired. Does not call Cohere. |
+| GET | `/conversations/{id}` | The messages of a conversation (for restoring the page). A "can be cancelled" reply also carries `cancellation` (order, `pending` / `cancelled` / `expired`, expiry), never the action ID. `404` if unknown or expired. Does not call Cohere. |
+| POST | `/feedback` | Rates one assistant reply: body `{"conversation_id", "message_index", "rating": "positive" \| "negative"}`. One rating per reply (repeats change nothing, a different rating replaces it). `404` for an unknown conversation or a position that isn't one of its replies; `422` for anything else, including extra fields. Does not call Cohere. |
+| POST | `/cancellations/confirm` | Cancels an order: body `{"conversation_id", "action_id"}` from a `/chat` reply's `pending_cancellation`. `200` (repeats return `already_confirmed: true`), `404` unknown action or wrong conversation, `410` expired, `409` order no longer cancellable. Does not call Cohere. |
 
 ### Example
 
@@ -317,7 +373,107 @@ To change a version: edit `constraints.txt` (and the range in
 `pyproject.toml` if needed), reinstall with
 `pip install -e ".[dev]" -c constraints.txt`, and run `pytest`.
 
+## Demo orders and refund policy
+
+`data/demo_orders.json` holds **12 entirely fictional orders** (`example.com`
+emails, made-up carriers) for the upcoming order tools. Nothing connects to a
+real order system. Dates are stored as days before today, so the scenarios
+never go stale. They cover every status (processing, shipped, delivered,
+cancelled), both shipping countries, and every refund case: inside and outside
+the 30-day window, problems reported inside and outside 7 days of delivery,
+and each kind of item that can't be returned.
+
+- `demo_orders.py` loads and strictly validates the file. An order is found
+  only with its order ID **and** the email it was placed with; an unknown
+  order, a wrong email and malformed input all give the same "not found".
+- `refund_policy.py` decides refund eligibility in **plain Python**, never
+  with the model: `eligible`, `not_eligible`, `needs_review` or
+  `not_applicable`, each with the rule applied and the KB articles that state
+  it (KB-002, KB-015, KB-016, KB-024, KB-028). Tests fail if the numbers in the
+  code (30 and 7 days) or the list of excluded items stop matching the KB.
+
+- `tools.py` is the **tool registry** for the coming order tools:
+  `get_order_status`, `check_refund_eligibility` and
+  `request_order_cancellation`. All three are read-only (the cancellation
+  tool only says whether an order *can* be cancelled). Every call is checked:
+  known tool, strict arguments, order number and email written by the
+  customer, and ownership.
+
+**In the chat:** when a customer writes an order number (e.g. `ORD-1003`),
+the model may call these tools (one round, at most 3 calls). Then it answers
+from the results, citing them as "Your order ORD-1003 (...)". If the order
+number or email is missing, the assistant asks for them. If an order can be
+cancelled, the reply is fixed text saying so; nothing is cancelled by the chat.
+Questions without an order number work exactly as before.
+
+**Cancelling (Milestones 3.4 and 3.5):** that "can be cancelled" reply says
+the order has *not* been cancelled yet and that confirmation is needed. It
+comes with a `pending_cancellation` (`action_id`, `order_id`, `expires_at`),
+and the page shows a box under the reply with the order number, the expiry
+time and two buttons:
+
+- **Confirm cancellation** calls `POST /cancellations/confirm` with the
+  conversation ID and the action ID. Both buttons are disabled while the
+  request runs, so a double click sends one request. The box then shows the
+  outcome: cancelled, already cancelled, expired, or can't be cancelled. If
+  the request failed (server unavailable, no connection), it says the order
+  has not been cancelled and the buttons work again.
+- **Keep order** sends nothing; the box just records the choice.
+
+Typing "yes" (or anything else) into the chat never cancels anything. The
+action ID is kept only in the tab's `sessionStorage` (like the conversation
+ID) and is sent only to the confirm endpoint. After a reload, the page
+restores each offer's status from `GET /conversations/{id}`. A pending offer
+can still be confirmed in the same tab. In another tab, where the ID isn't
+known, the page says the order has not been cancelled and to ask again.
+
+- The action ID is 128 random bits, valid for 15 minutes, tied to one
+  conversation and one order. It is returned to the browser only: it is not
+  in the saved messages, the prompts, the tool results or the logs, and the
+  database stores only its SHA-256 hash.
+- Confirmation re-checks the action, the conversation, the expiry and the
+  order's current status, then records the cancellation **exactly once**
+  (one SQLite transaction; the order number is a primary key). Repeating it
+  is safe and returns the same result.
+- `data/demo_orders.json` is never written. Cancellations are stored in the
+  conversation database, and the order tools then show the order as
+  cancelled. On Render's free plan they are lost on restart, like
+  conversations.
+
 ## Evaluation
+
+### Tool selection (offline)
+
+```powershell
+python evals/evaluate_tool_selection.py                     # offline, no Cohere calls
+python evals/evaluate_tool_selection.py --output evals/results/tool_selection_<date>.json
+python evals/evaluate_tool_selection.py --selections FILE   # score recorded selections
+```
+
+`evals/tool_selection_eval.json` has 48 cases using the fictional demo
+orders: order status, refunds, cancellations, general KB questions, order
+numbers in unrelated questions, missing details, ambiguous or multi-intent
+questions, adversarial requests and malformed model output. It reports three
+things separately:
+
+1. **The offer rule** (production): tools are offered only when an order
+   number is written. No case that needs a tool is missed; 9 cases get tools
+   offered without needing them, and then the model has to decline.
+2. **A keyword baseline** (eval-only rules, *not* the model): 47/48 correct,
+   with a confusion matrix. This figure is optimistic, because the rules and
+   the cases were written by the same person.
+3. **Orchestration with scripted model decisions**: each case's decision,
+   including deliberately wrong ones, goes through the real agent and tool
+   registry via a fake Cohere client. 48/48 outcomes as expected. All 7
+   invalid calls and all 7 missing-detail cases are handled safely, with 0
+   safety violations.
+
+These numbers do **not** measure how well a real model chooses tools: the
+decisions in (3) are written by hand. That needs a live run, which is still
+blocked (401). `--selections` can score such a recording later. Results:
+`evals/results/tool_selection_2026-11-21.json`.
+
+### Knowledge base
 
 Current knowledge base (KB v2, 77 questions in `evals/support_eval_v2.json`).
 Retrieval and answer quality are reported separately:

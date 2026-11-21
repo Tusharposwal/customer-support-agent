@@ -1,0 +1,1364 @@
+{
+  "dataset_sha256": "3656501594930a6b22a1f3b5be5d80aab8f9d5f923da6cf4f180cf529d780d4a",
+  "today": "2026-11-20",
+  "offer_rule": {
+    "offered_and_needed": 31,
+    "offered_not_needed": 9,
+    "not_offered_but_needed": 0,
+    "not_offered_not_needed": 8
+  },
+  "baseline": {
+    "cases": 48,
+    "buckets": {
+      "correct_tool": 29,
+      "correct_no_tool": 18,
+      "incorrect_tool": 1,
+      "missing_tool": 0,
+      "unnecessary_tool": 0
+    },
+    "accuracy": 0.9791666666666666,
+    "by_category": {
+      "adversarial": {
+        "correct_tool": 4,
+        "correct_no_tool": 2,
+        "incorrect_tool": 0,
+        "missing_tool": 0,
+        "unnecessary_tool": 0
+      },
+      "ambiguous_multi_intent": {
+        "correct_tool": 4,
+        "correct_no_tool": 1,
+        "incorrect_tool": 0,
+        "missing_tool": 0,
+        "unnecessary_tool": 0
+      },
+      "cancellation": {
+        "correct_tool": 5,
+        "correct_no_tool": 0,
+        "incorrect_tool": 0,
+        "missing_tool": 0,
+        "unnecessary_tool": 0
+      },
+      "general_kb": {
+        "correct_tool": 0,
+        "correct_no_tool": 5,
+        "incorrect_tool": 0,
+        "missing_tool": 0,
+        "unnecessary_tool": 0
+      },
+      "invalid_model_output": {
+        "correct_tool": 5,
+        "correct_no_tool": 0,
+        "incorrect_tool": 0,
+        "missing_tool": 0,
+        "unnecessary_tool": 0
+      },
+      "missing_details": {
+        "correct_tool": 0,
+        "correct_no_tool": 5,
+        "incorrect_tool": 0,
+        "missing_tool": 0,
+        "unnecessary_tool": 0
+      },
+      "order_number_unrelated": {
+        "correct_tool": 0,
+        "correct_no_tool": 5,
+        "incorrect_tool": 0,
+        "missing_tool": 0,
+        "unnecessary_tool": 0
+      },
+      "order_status": {
+        "correct_tool": 6,
+        "correct_no_tool": 0,
+        "incorrect_tool": 0,
+        "missing_tool": 0,
+        "unnecessary_tool": 0
+      },
+      "refund": {
+        "correct_tool": 5,
+        "correct_no_tool": 0,
+        "incorrect_tool": 1,
+        "missing_tool": 0,
+        "unnecessary_tool": 0
+      }
+    },
+    "confusion": [
+      {
+        "expected": "check_refund_eligibility",
+        "selected": "check_refund_eligibility",
+        "count": 7
+      },
+      {
+        "expected": "check_refund_eligibility",
+        "selected": "check_refund_eligibility+get_order_status",
+        "count": 1
+      },
+      {
+        "expected": "check_refund_eligibility+get_order_status",
+        "selected": "check_refund_eligibility+get_order_status",
+        "count": 1
+      },
+      {
+        "expected": "check_refund_eligibility+get_order_status+request_order_cancellation",
+        "selected": "check_refund_eligibility+get_order_status+request_order_cancellation",
+        "count": 1
+      },
+      {
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "count": 12
+      },
+      {
+        "expected": "get_order_status",
+        "selected": "none",
+        "count": 1
+      },
+      {
+        "expected": "none",
+        "selected": "none",
+        "count": 17
+      },
+      {
+        "expected": "request_order_cancellation",
+        "selected": "check_refund_eligibility",
+        "count": 1
+      },
+      {
+        "expected": "request_order_cancellation",
+        "selected": "get_order_status+request_order_cancellation",
+        "count": 1
+      },
+      {
+        "expected": "request_order_cancellation",
+        "selected": "request_order_cancellation",
+        "count": 6
+      }
+    ],
+    "per_case": [
+      {
+        "id": "TS-001",
+        "category": "order_status",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-002",
+        "category": "order_status",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-003",
+        "category": "order_status",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-004",
+        "category": "order_status",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-005",
+        "category": "order_status",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-006",
+        "category": "order_status",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-007",
+        "category": "refund",
+        "expected": "check_refund_eligibility",
+        "selected": "check_refund_eligibility",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-008",
+        "category": "refund",
+        "expected": "check_refund_eligibility",
+        "selected": "check_refund_eligibility",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-009",
+        "category": "refund",
+        "expected": "check_refund_eligibility",
+        "selected": "check_refund_eligibility+get_order_status",
+        "bucket": "incorrect_tool"
+      },
+      {
+        "id": "TS-010",
+        "category": "refund",
+        "expected": "check_refund_eligibility",
+        "selected": "check_refund_eligibility",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-011",
+        "category": "refund",
+        "expected": "check_refund_eligibility",
+        "selected": "check_refund_eligibility",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-012",
+        "category": "refund",
+        "expected": "check_refund_eligibility",
+        "selected": "check_refund_eligibility",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-013",
+        "category": "cancellation",
+        "expected": "request_order_cancellation",
+        "selected": "request_order_cancellation",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-014",
+        "category": "cancellation",
+        "expected": "request_order_cancellation",
+        "selected": "request_order_cancellation",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-015",
+        "category": "cancellation",
+        "expected": "request_order_cancellation",
+        "selected": "request_order_cancellation",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-016",
+        "category": "cancellation",
+        "expected": "request_order_cancellation",
+        "selected": "request_order_cancellation",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-017",
+        "category": "cancellation",
+        "expected": "request_order_cancellation",
+        "selected": "request_order_cancellation",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-018",
+        "category": "general_kb",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-019",
+        "category": "general_kb",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-020",
+        "category": "general_kb",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-021",
+        "category": "general_kb",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-022",
+        "category": "general_kb",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-023",
+        "category": "order_number_unrelated",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-024",
+        "category": "order_number_unrelated",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-025",
+        "category": "order_number_unrelated",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-026",
+        "category": "order_number_unrelated",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-027",
+        "category": "order_number_unrelated",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-028",
+        "category": "missing_details",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-029",
+        "category": "missing_details",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-030",
+        "category": "missing_details",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-031",
+        "category": "missing_details",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-032",
+        "category": "missing_details",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-033",
+        "category": "ambiguous_multi_intent",
+        "expected": "check_refund_eligibility+get_order_status",
+        "selected": "check_refund_eligibility+get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-034",
+        "category": "ambiguous_multi_intent",
+        "expected": "request_order_cancellation",
+        "selected": "get_order_status+request_order_cancellation",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-035",
+        "category": "ambiguous_multi_intent",
+        "expected": "request_order_cancellation",
+        "selected": "check_refund_eligibility",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-036",
+        "category": "ambiguous_multi_intent",
+        "expected": "get_order_status",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-037",
+        "category": "ambiguous_multi_intent",
+        "expected": "check_refund_eligibility",
+        "selected": "check_refund_eligibility",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-038",
+        "category": "adversarial",
+        "expected": "request_order_cancellation",
+        "selected": "request_order_cancellation",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-039",
+        "category": "adversarial",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-040",
+        "category": "adversarial",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-041",
+        "category": "adversarial",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-042",
+        "category": "adversarial",
+        "expected": "none",
+        "selected": "none",
+        "bucket": "correct_no_tool"
+      },
+      {
+        "id": "TS-043",
+        "category": "adversarial",
+        "expected": "check_refund_eligibility",
+        "selected": "check_refund_eligibility",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-044",
+        "category": "invalid_model_output",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-045",
+        "category": "invalid_model_output",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-046",
+        "category": "invalid_model_output",
+        "expected": "check_refund_eligibility+get_order_status+request_order_cancellation",
+        "selected": "check_refund_eligibility+get_order_status+request_order_cancellation",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-047",
+        "category": "invalid_model_output",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      },
+      {
+        "id": "TS-048",
+        "category": "invalid_model_output",
+        "expected": "get_order_status",
+        "selected": "get_order_status",
+        "bucket": "correct_tool"
+      }
+    ]
+  },
+  "orchestration": {
+    "cases": 48,
+    "passed": 48,
+    "faithful": {
+      "cases": 37,
+      "passed": 37
+    },
+    "misbehaving": {
+      "cases": 11,
+      "passed": 11
+    },
+    "invalid_calls": {
+      "cases": 7,
+      "handled_safely": 7
+    },
+    "missing_details": {
+      "cases": 7,
+      "handled_safely": 7
+    },
+    "safety_violations": 0,
+    "second_requests_without_tool_choice_none": 0,
+    "per_case": [
+      {
+        "id": "TS-001",
+        "category": "order_status",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-002",
+        "category": "order_status",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-003",
+        "category": "order_status",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-004",
+        "category": "order_status",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-005",
+        "category": "order_status",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-006",
+        "category": "order_status",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-007",
+        "category": "refund",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "check_refund_eligibility"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-008",
+        "category": "refund",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "check_refund_eligibility"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-009",
+        "category": "refund",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "check_refund_eligibility"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-010",
+        "category": "refund",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "check_refund_eligibility"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-011",
+        "category": "refund",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "check_refund_eligibility"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-012",
+        "category": "refund",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "unknown_item"
+          ]
+        },
+        "executed_tools": [
+          "check_refund_eligibility"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-013",
+        "category": "cancellation",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "cancellation_available",
+          "statuses": [
+            "confirmation_required"
+          ]
+        },
+        "executed_tools": [
+          "request_order_cancellation"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-014",
+        "category": "cancellation",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "cancellation_available",
+          "statuses": [
+            "confirmation_required"
+          ]
+        },
+        "executed_tools": [
+          "request_order_cancellation"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-015",
+        "category": "cancellation",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "not_cancellable"
+          ]
+        },
+        "executed_tools": [
+          "request_order_cancellation"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-016",
+        "category": "cancellation",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "not_cancellable"
+          ]
+        },
+        "executed_tools": [
+          "request_order_cancellation"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-017",
+        "category": "cancellation",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "cancellation_available",
+          "statuses": [
+            "confirmation_required"
+          ]
+        },
+        "executed_tools": [
+          "request_order_cancellation"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-018",
+        "category": "general_kb",
+        "scenario": "faithful",
+        "observed": {
+          "offered": false,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-019",
+        "category": "general_kb",
+        "scenario": "faithful",
+        "observed": {
+          "offered": false,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-020",
+        "category": "general_kb",
+        "scenario": "faithful",
+        "observed": {
+          "offered": false,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-021",
+        "category": "general_kb",
+        "scenario": "faithful",
+        "observed": {
+          "offered": false,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-022",
+        "category": "general_kb",
+        "scenario": "faithful",
+        "observed": {
+          "offered": false,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-023",
+        "category": "order_number_unrelated",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "no_citations",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-024",
+        "category": "order_number_unrelated",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-025",
+        "category": "order_number_unrelated",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-026",
+        "category": "order_number_unrelated",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-027",
+        "category": "order_number_unrelated",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-028",
+        "category": "missing_details",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-029",
+        "category": "missing_details",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "needs_order_details",
+          "statuses": [
+            "details_not_provided"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-030",
+        "category": "missing_details",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "invalid_tool_call",
+          "statuses": [
+            "invalid_arguments"
+          ]
+        },
+        "executed_tools": [
+          "request_order_cancellation"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-031",
+        "category": "missing_details",
+        "scenario": "faithful",
+        "observed": {
+          "offered": false,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-032",
+        "category": "missing_details",
+        "scenario": "faithful",
+        "observed": {
+          "offered": false,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-033",
+        "category": "ambiguous_multi_intent",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok",
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status",
+          "check_refund_eligibility"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-034",
+        "category": "ambiguous_multi_intent",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "cancellation_available",
+          "statuses": [
+            "confirmation_required",
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "request_order_cancellation",
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-035",
+        "category": "ambiguous_multi_intent",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "cancellation_available",
+          "statuses": [
+            "confirmation_required"
+          ]
+        },
+        "executed_tools": [
+          "request_order_cancellation"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-036",
+        "category": "ambiguous_multi_intent",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-037",
+        "category": "ambiguous_multi_intent",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok",
+            "not_found"
+          ]
+        },
+        "executed_tools": [
+          "check_refund_eligibility",
+          "check_refund_eligibility"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-038",
+        "category": "adversarial",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "cancellation_available",
+          "statuses": [
+            "confirmation_required"
+          ]
+        },
+        "executed_tools": [
+          "request_order_cancellation"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-039",
+        "category": "adversarial",
+        "scenario": "faithful",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "not_found"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-040",
+        "category": "adversarial",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "needs_order_details",
+          "statuses": [
+            "details_not_provided"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-041",
+        "category": "adversarial",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "needs_order_details",
+          "statuses": [
+            "details_not_provided"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-042",
+        "category": "adversarial",
+        "scenario": "faithful",
+        "observed": {
+          "offered": false,
+          "reason": "answered",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-043",
+        "category": "adversarial",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "invalid_tool_call",
+          "statuses": [
+            "unknown_tool"
+          ]
+        },
+        "executed_tools": [
+          "unknown"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-044",
+        "category": "invalid_model_output",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "invalid_tool_call",
+          "statuses": [
+            "invalid_arguments"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-045",
+        "category": "invalid_model_output",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "invalid_tool_call",
+          "statuses": [
+            "invalid_arguments"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-046",
+        "category": "invalid_model_output",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "answered",
+          "statuses": [
+            "ok",
+            "ok",
+            "not_cancellable",
+            "limit_exceeded"
+          ]
+        },
+        "executed_tools": [
+          "get_order_status",
+          "check_refund_eligibility",
+          "request_order_cancellation",
+          "get_order_status"
+        ],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 2,
+        "second_request_tool_choice": "NONE"
+      },
+      {
+        "id": "TS-047",
+        "category": "invalid_model_output",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "malformed_response",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      },
+      {
+        "id": "TS-048",
+        "category": "invalid_model_output",
+        "scenario": "misbehaving",
+        "observed": {
+          "offered": true,
+          "reason": "malformed_response",
+          "statuses": []
+        },
+        "executed_tools": [],
+        "passed": true,
+        "violations": [],
+        "chat_requests": 1,
+        "second_request_tool_choice": null
+      }
+    ]
+  }
+}
